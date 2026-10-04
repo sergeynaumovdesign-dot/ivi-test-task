@@ -1,0 +1,156 @@
+/* Figma: IVI UI Kit / Primitives / Value */
+:root {
+  --ivi-color-gray-0: #ffffff;
+  --ivi-color-gray-100-alpha-20: rgba(6, 8, 8, 0.2);
+  --ivi-color-green-60: #00bf4c;
+  --ivi-color-gray-80: #363636;
+  --ivi-color-gray-10: #e0e0e0;
+  --ivi-color-purple-40: #d56fff;
+  --ivi-color-rose-60: #f30745;
+  --ivi-color-gray-90: #1f1f1f;
+  --ivi-color-gray-95: #141414;
+  --ivi-color-gray-85: #292929;
+  --ivi-color-gray-20: #bbbbbc;
+  --ivi-color-gray-40: #909090;
+  --ivi-color-gray-100: #060808;
+  --ivi-color-amber-60: #ce891b;
+  --ivi-color-red-60: #e72121;
+  --ivi-color-white-alpha-10: rgba(255, 255, 255, 0.1);
+  --ivi-color-pink-40: #ff78bb;
+  --ivi-color-pink-20: #febadd;
+  --ivi-color-green-10: #e0f5e2;
+  --ivi-color-green-20: #c1ebc5;
+  --ivi-color-green-30: #a0e1a8;
+  --ivi-color-green-40: #7dd68b;
+  --ivi-color-green-50: #54cb6d;
+  --ivi-color-green-70: #009439;
+  --ivi-color-green-80: #006b27;
+  --ivi-color-green-90: #004516;
+  --ivi-color-green-100: #002207;
+  --ivi-color-rose-10: #fee2e1;
+  --ivi-color-rose-20: #fec3c3;
+  --ivi-color-rose-30: #fea3a4;
+  --ivi-color-rose-40: #ff7e83;
+  --ivi-color-rose-50: #fb5364;
+  --ivi-color-rose-70: #be0434;
+  --ivi-color-rose-80: #8c0224;
+  --ivi-color-rose-90: #5e0115;
+  --ivi-color-rose-100: #320007;
+  --ivi-color-red-10: #ffe1dc;
+  --ivi-color-red-20: #fec1b9;
+  --ivi-color-red-30: #fea094;
+  --ivi-color-red-40: #f87e71;
+  --ivi-color-red-50: #f1584c;
+  --ivi-color-red-70: #b51717;
+  --ivi-color-red-80: #860e0e;
+  --ivi-color-red-90: #590606;
+  --ivi-color-red-100: #300202;
+  --ivi-color-amber-10: #f8ecdd;
+  --ivi-color-amber-20: #f0d8bb;
+  --ivi-color-amber-30: #e8c599;
+  --ivi-color-amber-40: #e0b177;
+  --ivi-color-amber-50: #d79d51;
+  --ivi-color-amber-70: #a06a13;
+  --ivi-color-amber-80: #744c0a;
+  --ivi-color-amber-90: #4c3004;
+  --ivi-color-amber-100: #261601;
+  --ivi-color-purple-10: #f4defe;
+  --ivi-color-purple-20: #e9bdfe;
+  --ivi-color-purple-30: #de99fd;
+  --ivi-color-purple-50: #b35cd6;
+  --ivi-color-purple-60: #924aaf;
+  --ivi-color-purple-70: #723889;
+  --ivi-color-purple-80: #532865;
+  --ivi-color-purple-90: #371844;
+  --ivi-color-purple-100: #1d0925;
+  --ivi-color-pink-10: #fedeeb;
+  --ivi-color-pink-30: #fd9dc9;
+  --ivi-color-pink-50: #d6649c;
+  --ivi-color-pink-60: #ae507f;
+  --ivi-color-pink-70: #893d62;
+  --ivi-color-pink-80: #642b48;
+  --ivi-color-pink-90: #431a2e;
+  --ivi-color-pink-100: #230b17;
+  --ivi-color-gray-30: #a6a6a7;
+  --ivi-color-gray-50: #747575;
+  --ivi-color-gray-60: #5d5e5e;
+  --ivi-color-gray-70: #484949;
+  --ivi-color-white-alpha-0: rgba(255, 255, 255, 0);
+  --ivi-color-white-alpha-5: rgba(255, 255, 255, 0.05);
+  --ivi-color-white-alpha-15: rgba(255, 255, 255, 0.15);
+  --ivi-color-white-alpha-20: rgba(255, 255, 255, 0.2);
+  --ivi-color-white-alpha-30: rgba(255, 255, 255, 0.3);
+  --ivi-color-white-alpha-40: rgba(255, 255, 255, 0.4);
+  --ivi-color-white-alpha-50: rgba(255, 255, 255, 0.5);
+  --ivi-color-white-alpha-60: rgba(255, 255, 255, 0.6);
+  --ivi-color-white-alpha-80: rgba(255, 255, 255, 0.8);
+  --ivi-color-black-alpha-0: rgba(0, 0, 0, 0);
+  --ivi-color-black-alpha-40: rgba(0, 0, 0, 0.4);
+  --ivi-color-black-alpha-60: rgba(0, 0, 0, 0.6);
+  --ivi-color-black-alpha-80: rgba(0, 0, 0, 0.8);
+  --ivi-color-black-alpha-100: #000000;
+}
+/* Figma: IVI UI Kit / Semantic / Dark */
+:root {
+  --ivi-system-statusbar-primary: var(--ivi-color-gray-0);
+  --ivi-text-primary: var(--ivi-color-gray-0);
+  --ivi-overlay-media-subtle: var(--ivi-color-gray-100-alpha-20);
+  --ivi-rating-positive: var(--ivi-color-green-60);
+  --ivi-text-secondary: var(--ivi-color-gray-10);
+  --ivi-ai-foreground: var(--ivi-color-purple-40);
+  --ivi-action-primary-default: var(--ivi-color-rose-60);
+  --ivi-action-secondary-default: var(--ivi-color-gray-90);
+  --ivi-background-surface: var(--ivi-color-gray-95);
+  --ivi-background-elevated: var(--ivi-color-gray-85);
+  --ivi-text-description: var(--ivi-color-gray-20);
+  --ivi-text-tertiary: var(--ivi-color-gray-40);
+  --ivi-text-inactive: var(--ivi-color-gray-50);
+  --ivi-background-canvas: var(--ivi-color-gray-100);
+  --ivi-rating-neutral: var(--ivi-color-gray-20);
+  --ivi-rating-negative: var(--ivi-color-red-60);
+  --ivi-action-overlay-default: var(--ivi-color-white-alpha-10);
+  --ivi-ai-gradient-start: var(--ivi-color-pink-40);
+  --ivi-ai-gradient-end: var(--ivi-color-purple-40);
+  --ivi-ai-gradient-startsoft: var(--ivi-color-pink-20);
+  --ivi-text-onaccent: var(--ivi-color-gray-0);
+  --ivi-text-inverse: var(--ivi-color-gray-100);
+  --ivi-text-disabled: var(--ivi-color-white-alpha-30);
+  --ivi-background-media: var(--ivi-color-black-alpha-100);
+  --ivi-background-placeholder: var(--ivi-color-gray-80);
+  --ivi-border-subtle: var(--ivi-color-white-alpha-10);
+  --ivi-border-default: var(--ivi-color-white-alpha-20);
+  --ivi-border-strong: var(--ivi-color-gray-40);
+  --ivi-border-focus: var(--ivi-color-purple-40);
+  --ivi-action-disabled: var(--ivi-color-white-alpha-5);
+  --ivi-progress-fill: var(--ivi-color-rose-60);
+  --ivi-progress-track: var(--ivi-color-white-alpha-20);
+  --ivi-overlay-scrim: var(--ivi-color-black-alpha-60);
+  --ivi-action-primary-disabled: var(--ivi-color-rose-90);
+  --ivi-action-secondary-disabled: var(--ivi-color-gray-95);
+  --ivi-action-overlay-disabled: var(--ivi-color-white-alpha-5);
+  --ivi-action-primary-pressed: var(--ivi-color-rose-70);
+  --ivi-action-secondary-pressed: var(--ivi-color-gray-95);
+  --ivi-action-overlay-pressed: var(--ivi-color-white-alpha-20);
+}
+/* Figma text styles: exact family, weight, size, line height and tracking */
+.ivi-text-bold-h1 { font-family: 'IVI Sans AI SVG'; font-weight: 700; font-size: 32px; line-height: 40px; letter-spacing: -0.025em; font-synthesis: none; }
+.ivi-text-bold-h2 { font-family: 'IVI Sans AI SVG'; font-weight: 700; font-size: 20px; line-height: 28px; letter-spacing: -0.025em; font-synthesis: none; }
+.ivi-text-bold-h3 { font-family: 'IVI Sans AI SVG'; font-weight: 700; font-size: 16px; line-height: 20px; letter-spacing: 0.01em; font-synthesis: none; }
+.ivi-text-bold-rating-large { font-family: 'IVI Sans AI SVG'; font-weight: 700; font-size: 24px; line-height: 40px; letter-spacing: 0.01em; font-synthesis: none; }
+.ivi-text-bold-text-small { font-family: 'IVI Sans AI SVG'; font-weight: 700; font-size: 14px; line-height: 20px; letter-spacing: 0.01em; font-synthesis: none; }
+.ivi-text-bold-caption { font-family: 'IVI Sans AI SVG'; font-weight: 700; font-size: 12px; line-height: 16px; letter-spacing: 0.01em; font-synthesis: none; }
+.ivi-text-medium-text { font-family: 'IVI Sans AI SVG'; font-weight: 400; font-size: 16px; line-height: 22px; letter-spacing: 0.01em; font-synthesis: none; }
+.ivi-text-medium-text-small { font-family: 'IVI Sans AI SVG'; font-weight: 500; font-size: 14px; line-height: 20px; letter-spacing: 0.01em; font-synthesis: none; }
+.ivi-text-medium-button-label { font-family: 'IVI Sans AI SVG'; font-weight: 500; font-size: 14px; line-height: 20px; letter-spacing: 0.01em; font-synthesis: none; }
+.ivi-text-medium-caption { font-family: 'IVI Sans AI SVG'; font-weight: 500; font-size: 12px; line-height: 16px; letter-spacing: 0.02em; font-synthesis: none; }
+.ivi-text-medium-tag-label { font-family: 'IVI Sans AI SVG'; font-weight: 500; font-size: 13px; line-height: 16px; letter-spacing: 0em; font-synthesis: none; }
+.ivi-text-regular-text-large { font-family: 'IVI Sans AI SVG'; font-weight: 400; font-size: 20px; line-height: 28px; letter-spacing: 0em; font-synthesis: none; }
+.ivi-text-regular-text { font-family: 'IVI Sans AI SVG'; font-weight: 400; font-size: 16px; line-height: 22px; letter-spacing: 0.01em; font-synthesis: none; }
+.ivi-text-regular-text-small { font-family: 'IVI Sans AI SVG'; font-weight: 400; font-size: 14px; line-height: 20px; letter-spacing: 0.01em; font-synthesis: none; }
+.ivi-text-regular-caption { font-family: 'IVI Sans AI SVG'; font-weight: 400; font-size: 12px; line-height: 16px; letter-spacing: 0.01em; font-synthesis: none; }
+.ivi-text-h1 { font: 700 32px/40px 'IVI Sans AI SVG'; letter-spacing: -.025em; }
+.ivi-text-h2 { font: 700 20px/28px 'IVI Sans AI SVG'; letter-spacing: -.025em; }
+.ivi-text-h3 { font: 700 16px/20px 'IVI Sans AI SVG'; letter-spacing: .01em; }
+.ivi-text-body { font: 400 16px/22px 'IVI Sans AI SVG'; letter-spacing: .01em; }
+.ivi-text-small { font: 400 14px/20px 'IVI Sans AI SVG'; letter-spacing: .01em; }
+.ivi-text-caption { font: 400 12px/16px 'IVI Sans AI SVG'; letter-spacing: .01em; }

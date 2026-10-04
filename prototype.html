@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Иви · Прототип</title>
+  <link rel="stylesheet" href="components/components.css">
+  <link rel="stylesheet" href="prototype.css?v=swipe-hints-2">
+</head>
+<body class="prototype-page">
+  <script>if(new URLSearchParams(location.search).has("embed"))document.body.classList.add("is-embedded");</script>
+  <a class="home-link" href="index.html">← На главную</a>
+  <main class="prototype-workspace">
+    <div class="phone" id="phone">
+      <div id="screen" class="phone-scroll"></div>
+      <div id="phone-top-fade" aria-hidden="true"><span></span><span></span><span></span><span></span></div>
+      <div id="screen-stack"></div>
+      <div class="phone-toast" role="status" hidden></div>
+    </div>
+  </main>
+  <aside class="settings">
+    <h1>Прототип</h1>
+    <label>Контент<select id="title-select"><option value="serial">Сериал · Ганнибал</option><option value="movie">Фильм · Обсессия</option></select></label>
+    <label class="settings__toggle"><input id="personalized" type="checkbox" checked>Персонализация</label>
+    <h2>Блоки</h2>
+    <label class="settings__toggle"><input data-block="friends" type="checkbox" checked>Оценки друзей</label>
+    <label class="settings__toggle"><input data-block="moments" type="checkbox" checked>Моменты</label>
+    <label class="settings__toggle"><input data-block="feedback" type="checkbox" checked>Отзывы</label>
+    <button class="settings__replay" id="replay-swipe-hints" type="button">Повторить подсказки свайпа</button>
+    <p class="settings__replay-note" id="swipe-hints-note" role="status">После нажатия заново открой трейлер или первый момент.</p>
+    <details class="settings__details" id="cover-settings">
+      <summary>Настроить шапку</summary>
+      <label>Обложка<select data-cover="mediaType"><option value="Trailer">Трейлер</option><option value="Poster">Постер</option></select></label>
+      <label data-when="Trailer">Видео трейлера<input id="trailer-file" type="file" accept="video/*"></label>
+      <label data-when="Trailer">Фотопревью до загрузки<input data-cover-file="trailerImage" type="file" accept="image/*"></label>
+      <label data-when="Poster">Постер<input data-cover-file="posterImage" type="file" accept="image/*"></label>
+      <label>Название<input data-cover="title" type="text"></label>
+      <label>Постер с названием<input data-cover-file="titleLogo" type="file" accept="image/*"></label>
+      <label>Рейтинг Иви<input data-cover="rating" type="text"></label>
+      <label>Число оценок<input data-cover="ratingCount" type="number" min="0"></label>
+      <label>Год / годы<input data-cover="years" type="text"></label>
+      <label>Сезоны / длительность<input data-cover="length" type="text"></label>
+      <label>Страна<input data-cover="country" type="text"></label>
+      <label>Возраст<input data-cover="age" type="text"></label>
+      <label>Жанры через запятую<input data-cover="genres" type="text"></label>
+      <label>Имя друга<input data-cover="friendName" type="text"></label>
+      <label>Имя друга в дательном падеже<input data-cover="friendNameDative" type="text"></label>
+      <label>Оценка друга<input data-cover="friendScore" type="number" min="1" max="10"></label>
+      <label>Аватар друга<input data-cover-file="friendAvatar" type="file" accept="image/*"></label>
+      <label>Обычное описание<textarea data-cover="ordinary" rows="4"></textarea></label>
+      <label>Основа персонального описания<textarea data-cover="descriptionPrefix" rows="4"></textarea></label>
+      <label>Персональная часть<textarea data-cover="descriptionPersonalized" rows="3"></textarea></label>
+      <label>Текст главной кнопки<input data-cover="primaryLabel" type="text"></label>
+      <label>Подпись кнопки<input data-cover="primaryCaption" type="text"></label>
+    </details>
+    <details class="settings__details"><summary>Видео для проверки</summary>
+      <p>У «Ганнибала» три момента уже подключены. Здесь можно временно подставить другие файлы.</p>
+      <label>Первый момент<input data-moment-file="0" type="file" accept="video/*"></label>
+      <label>Второй момент<input data-moment-file="1" type="file" accept="video/*"></label>
+      <label>Третий момент<input data-moment-file="2" type="file" accept="video/*"></label>
+      <label>Фильм или серия<input id="full-file" type="file" accept="video/*"></label>
+    </details>
+    <p>Листай экран и подборки мышью, как пальцем на телефоне.</p>
+  </aside>
+  <script type="module" src="prototype.js"></script>
+</body>
+</html>

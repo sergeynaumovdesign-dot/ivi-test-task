@@ -1,0 +1,12 @@
+<!doctype html><html lang="ru"><meta charset="utf-8"><title>Сверка с Figma</title><link rel="stylesheet" href="../components/components.css"><style>*{box-sizing:border-box}body{margin:24px;background:#060808;color:#fff;font:14px sans-serif}#comparison{display:flex;gap:40px;align-items:flex-start}figure{margin:0}figcaption{margin-bottom:16px;color:#aaa}.canvas{position:relative;background:#0f1212}figure>img{display:block}#result{color:#aaa}</style><h1></h1><div id="comparison"></div><p id="result"></p><script type="module">
+import {extraComponents,referenceLayouts} from '../extra-components.js';
+const key=location.hash.slice(1)||'compilation',item=extraComponents[key];
+await Promise.all([400,500,700].map(w=>document.fonts.load(`${w} 16px "IVI Sans AI SVG"`)));
+document.querySelector('h1').textContent=item.label;
+const comparison=document.querySelector('#comparison');
+const a=document.createElement('figure'),b=document.createElement('figure');a.innerHTML='<figcaption>Figma</figcaption>';b.innerHTML='<figcaption>Код</figcaption>';
+const reference=new Image();reference.src=`../reference/new-${item.id.replace(':','-')}.png`;await reference.decode();a.append(reference);
+const layout=referenceLayouts[key];if(layout){const canvas=document.createElement('div');canvas.className='canvas';Object.assign(canvas.style,{width:`${layout.width}px`,height:`${layout.height}px`});for(const {x,y,...props}of layout.items){const c=item.factory({...item.defaults,...props});Object.assign(c.style,{position:'absolute',left:`${x}px`,top:`${y}px`});canvas.append(c);}b.append(canvas);}else b.append(item.factory({...item.defaults}));comparison.append(a,b);
+for(const img of b.querySelectorAll('img')){if(img.src)await img.decode();}
+document.querySelector('#result').textContent='Исходные размеры, шрифт и локальные изображения. Оба варианта — 1:1.';
+</script></html>
