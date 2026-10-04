@@ -44,7 +44,7 @@ export function createContentCardCover(options = {}) {
   const header=createContentPageHeader({...p,onOpenTrailer:data=>p.onOpenTrailer?.({...data,card:data.card||header})});
   const body=node('div','ivi-content-cover__body');
   body.append(createTitleBlock({...p,width:p.width}));
-  const friend = createFriendRate({ name: p.friendName, score: p.friendScore, avatar: p.friendAvatar, width: p.width });
+  const friend = createFriendRate({ name: p.friendName, score: p.friendScore, avatar: p.friendAvatar, width: p.width, onPress: p.onFriendPress });
   if (p.showFriend !== false && !friend.hidden) body.append(friend);
   const lower = node('div', 'ivi-content-cover__lower');
   lower.append(createTitleDescription({

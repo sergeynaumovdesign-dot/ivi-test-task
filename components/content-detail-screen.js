@@ -5,6 +5,7 @@ import { createIconButton } from './button.js';
 import { createContentCardCover, contentCoverDefaults } from './content-card-cover.js';
 import { createTabsBlock, tabsBlockDefaults } from './tabs-block.js';
 import { createSeries } from './series.js';
+import { episodeDescriptions } from './episode-data.js';
 import { createMomentCard } from './moment-card.js';
 import { createPersonCard } from './person-card.js';
 import { createRatingBlock, ratingDefaults } from './rating-block.js';
@@ -22,6 +23,8 @@ export const contentDetailScreenDefaults = {
   width: 375,
   variant: 'Serial',
   activeTab: 0,
+  activeSeason: 1,
+  episodeDescriptions,
   blocks: {
     cover: true,
     tabs: true,
@@ -93,24 +96,23 @@ export function createContentDetailScreen(options = {}) {
   const disposables=[];
   const keep=component=>{disposables.push(component);return component;};
   root.append(createStatusBar({width:p.width}),createNavigationBar({width:p.width,onBack:p.onBack}),createMargin({value:8,width:p.width}));
-  const cover=keep(createContentCardCover({...p.cover,width:p.width,type:p.variant,showFriend:p.blocks.friends,onOpenTrailer:p.onOpenTrailer,onWatch:p.onWatch,onSaveChange:p.onSaveChange,onRate:p.onRate,onDownload:p.onDownload,onShare:p.onShare}));
+  const cover=keep(createContentCardCover({...p.cover,width:p.width,type:p.variant,showFriend:p.blocks.friends,onOpenTrailer:p.onOpenTrailer,onFriendPress:()=>{root.selectTab?.(0);p.onOpenFriendRatings?.(root.querySelector('[data-section="friends"]'));},onWatch:p.onWatch,onSaveChange:p.onSaveChange,onRate:p.onRate,onDownload:p.onDownload,onShare:p.onShare}));
   root.append(cover,createMargin({value:32,width:p.width}));
   const about=node('div','ivi-content-detail-screen__content');
   const seasons=node('div','ivi-content-detail-screen__season-panel');seasons.hidden=p.activeTab!==1;
   if(p.variant==='Serial'){
-    const tabGap=createMargin({value:20,width:p.width});
     about.hidden=p.activeTab===1;
-    tabGap.style.height=`${p.activeTab===1?16:20}px`;
-    const tabs=keep(createTabsBlock({width:p.width,tabs:['О сериале','Сезоны'],active:p.activeTab,onChange:index=>{p.onTabChange?.(index,tabs);about.hidden=index===1;seasons.hidden=index!==1;tabGap.style.height=`${index===1?16:20}px`;},onReselect:index=>p.onTabReselect?.(index,tabs)}));
-    root.append(tabs,tabGap);
+    const tabs=keep(createTabsBlock({width:p.width,tabs:['О сериале','Сезоны'],active:p.activeTab,onChange:index=>{p.onTabChange?.(index,tabs);about.hidden=index===1;seasons.hidden=index!==1;},onReselect:index=>p.onTabReselect?.(index,tabs)}));
+    root.selectTab=index=>{about.hidden=index===1;seasons.hidden=index!==1;tabs.setActive(index);};
+    root.append(tabs);
     const list=node('div','ivi-content-detail-screen__season-panel');
     const draw=season=>{
       [...list.children].forEach(x=>x.destroy?.());list.replaceChildren();
-      const firstSeason=['Аперетив','Комплимент от шеф-повара','Крем-суп','Яйцо','Ракушки','Основное блюдо','Сорбет','Сыр'];
+      const firstSeason=['Аперитив','Комплимент от шеф-повара','Крем-суп','Яйцо','Ракушки','Основное блюдо','Сорбет','Сыр'];
       const count=season===1?firstSeason.length:13;
-      for(let i=1;i<=count;i++)list.append(createSeries({width:p.width,title:`${i}. ${season===1?firstSeason[i-1]:`Серия ${i}`}`,duration:i===1?'42 мин':'43 мин',imageSrc:season===1?p.seriesImages?.[i-1]:'',onWatch:()=>p.onOpenSeries?.({title:`Сезон ${season} серия ${i}`})}));
+      for(let i=1;i<=count;i++)list.append(createSeries({width:p.width,title:`${i}. ${season===1?firstSeason[i-1]:`Серия ${i}`}`,duration:i===1?'42 мин':'43 мин',imageSrc:season===1?p.seriesImages?.[i-1]:'',description:p.episodeDescriptions?.[season-1]?.[i-1],onWatch:info=>p.onOpenSeries?.({title:p.cover.title,episode:`Сезон ${season} серия ${i}`,durationSeconds:i===1?2520:2580,startAt:info.startAt})}));
     };
-    seasons.append(keep(createSeasonTabs({width:p.width,count:3,active:1,onChange:draw})),list);draw(1);
+    seasons.append(keep(createSeasonTabs({width:p.width,count:3,active:p.activeSeason,onChange:season=>{p.activeSeason=season;p.onSeasonChange?.(season);draw(season);}})),list);draw(p.activeSeason);
     disposables.push({destroy:()=>[...list.children].forEach(x=>x.destroy?.())});
   }
   const add=(name,child,gap=32)=>{if(about.children.length)about.append(createMargin({value:gap,width:p.width}));const block=section(name,child);about.append(block);};
@@ -127,8 +129,8 @@ export function createContentDetailScreen(options = {}) {
     add('feedback',scroller('feedback',(p.reviews||[feedbackBlockDefaults]).map(review=>createFeedbackBlock({...review,width:p.width-32,onOpen:p.onOpenFeedback}))),8);
   }
   add('people',group('Актеры и создатели',p.people.map(person=>createPersonCard({...person,onOpen:p.onOpenPerson})),'people'));
-  add('videos',group('Материалы сериала',p.videos.map(video=>{let card=createVideoCard({...video,onOpen:data=>p.onOpenVideo?.({...data,card})});return card;}),'videos'));
-  add('compilations',group('Сериал в подборках',p.compilations.map(item=>createCompilationCard({...item,onOpen:()=>p.onOpenCompilation?.(item)})),'compilations'));
+  add('videos',group(p.variant==='Serial'?'Материалы сериала':'Материалы фильма',p.videos.map(video=>{let card=createVideoCard({...video,onOpen:data=>p.onOpenVideo?.({...data,card})});return card;}),'videos'));
+  add('compilations',group(p.variant==='Serial'?'Сериал в подборках':'Фильм в подборках',p.compilations.map(item=>createCompilationCard({...item,onOpen:()=>p.onOpenCompilation?.(item)})),'compilations'));
   add('recommendations',group(p.variant==='Serial'?'Если понравился «Ганнибал»':'Если понравилась «Обсессия»',p.recommendations.map(item=>createPoster({...item,onOpen:()=>p.onOpenRecommendation?.(item)})),'recommendations'));
   const details=node('div','ivi-content-detail-screen__group');
   details.append(createSectionTitle({title:p.variant==='Serial'?'Подробнее о сериале':'Подробнее о фильме',width:p.width}),keep(createTextBlock({width:p.width,text:p.detailText||p.cover.description,textStyle:'Text Small'})));

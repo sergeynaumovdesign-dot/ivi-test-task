@@ -44,7 +44,7 @@ export function createResearchSlider({questions,total=28}) {
   dots.append(button);
   return button;
  });
- controls.append(previous,dots,counter,next);
+ controls.append(previous,dots,next,counter);
  root.append(viewport,controls);
  function update(){
   previous.disabled=index===0;

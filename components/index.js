@@ -25,3 +25,4 @@ export * from './title-block.js';
 export * from './blob.js';
 export * from './icon.js';
 export * from './content-detail-screen.js';
+export * from './video-player.js';

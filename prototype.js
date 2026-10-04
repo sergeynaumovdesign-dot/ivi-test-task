@@ -1,3 +1,4 @@
+import {createVideoPlayer} from './components/video-player.js';
 import {titles} from './prototype-data.js';
 import {createContentDetailScreen} from './components/content-detail-screen.js';
 import {createMomentScreen,momentSwipeDuration,momentSwipeEasing} from './components/moment-screen.js';
@@ -10,7 +11,7 @@ const phone=document.querySelector('#phone'),host=document.querySelector('#scree
 const systemStatusBar=createStatusBar({width:phone.clientWidth});systemStatusBar.id='phone-system-status';phone.append(systemStatusBar);
 const prototypeParams=new URLSearchParams(location.search);
 const silentPreview=prototypeParams.get('muted')==='1';
-const state={key:'serial',personalized:true,activeTab:0,blocks:{friends:true,moments:true,feedback:true},cover:{serial:{},movie:{}},tabScroll:{serial:[null,null],movie:[null,null]}};
+const state={key:'serial',personalized:true,activeTab:0,activeSeason:{serial:1,movie:1},blocks:{friends:true,moments:true,feedback:true},cover:{serial:{},movie:{}},tabScroll:{serial:[null,null],movie:[null,null]}};
 const saved={serial:false,movie:false},ratings={serial:0,movie:0},media={serial:{moments:[]},movie:{moments:[]}};
 const warmDock=node('div','moment-warm-dock');document.body.append(warmDock);
 const warmVideos={serial:[],movie:[]};
@@ -69,6 +70,16 @@ function editableCover(){return {...current().cover,...state.cover[state.key]};}
 function updateTopFade(){const fade=document.querySelector('#phone-top-fade');const tabs=screen?.querySelector('.ivi-tabs-block');const pinned=Boolean(tabs&&host.scrollTop>=tabPin(tabs)-1);const seasonTabs=pinned&&state.activeTab===1;fade.style.height=pinned?(seasonTabs?'232px':'180px'):'100px';fade.classList.toggle('is-scrolled',host.scrollTop>0);fade.classList.toggle('is-season-tabs',seasonTabs);}
 function tabPin(tabs){return Number(tabs.dataset.pin??Math.max(0,tabs.offsetTop-89));}
 function onTabChange(index,tabs){const positions=state.tabScroll[state.key];const pin=tabPin(tabs);positions[state.activeTab]=Math.max(pin,host.scrollTop);state.activeTab=index;requestAnimationFrame(()=>{host.scrollTo({top:Math.max(pin,positions[index]??pin),behavior:'smooth'});updateTopFade();});}
+function scrollToFriendRatings(section){
+ if(!section)return;
+ const tabs=screen.querySelector('.ivi-tabs-block');
+ if(state.activeTab!==0&&tabs){state.tabScroll[state.key][state.activeTab]=Math.max(tabPin(tabs),host.scrollTop);state.activeTab=0;}
+ requestAnimationFrame(()=>{
+  const offset=tabs?137:89;
+  const top=host.scrollTop+section.getBoundingClientRect().top-host.getBoundingClientRect().top-offset;
+  host.scrollTo({top:Math.max(0,top),behavior:reduced.matches?'instant':'smooth'});
+ });
+}
 function onTabReselect(index,tabs){const pin=tabPin(tabs);state.tabScroll[state.key][index]=pin;host.scrollTo({top:pin,behavior:'smooth'});}
 function syncCoverControls(){const cover=editableCover();document.querySelectorAll('[data-cover]').forEach(input=>{const field=input.dataset.cover;const value=field==='ordinary'?(state.cover[state.key].ordinary??current().ordinary):cover[field];input.value=Array.isArray(value)?value.join(', '):value??'';});document.querySelectorAll('[data-when]').forEach(label=>{label.hidden=label.dataset.when!==cover.mediaType;});document.querySelectorAll('[data-cover-file],#trailer-file').forEach(input=>input.value='');}
 const momentCardMotion={duration:260,easing:'ease-in-out',fill:'both'};
@@ -106,6 +117,11 @@ function animateMomentCard(layer,closing,finish){
   closing?[{opacity:textOpacities[index]},{opacity:0}]:[{opacity:0},{opacity:1}],
   {duration:closing?50:80,delay:closing?0:momentCardMotion.duration-80,easing:'ease-in-out',fill:'both'}
  ));
+ // Release the completed fade instead of keeping the controls in an opacity
+ // compositing group, which can prevent backdrop filters from sampling video.
+ if(!closing)layer.textAnimations.forEach(animation=>animation.finished.then(()=>{
+  if(!layer.closing&&layer.textAnimations.includes(animation))animation.cancel();
+ },()=>{}));
  if(layer.originCard)layer.originCard.style.visibility='hidden';
  const motion={...momentCardMotion,duration:closing?180:momentCardMotion.duration,easing:closing?momentCardMotion.easing:'cubic-bezier(.2,.7,.2,1)'};
  const animation=layer.animate(closing?[currentFrame||expanded,origin]:[origin,expanded],motion);
@@ -160,7 +176,7 @@ function closeMomentToContent(){
  if(layer.momentOrigin){animateMomentCard(layer,true,finish);return;}
  layer.animate([{transform:'none',opacity:1},{transform:'scale(.92)',opacity:0}],{duration:230,easing:'ease-out',fill:'forwards'}).finished.then(finish,finish);
 }
-function openLayer(child,origin,{moment=false,trailer=false,video=false,animateEntry=true}={}){screen.pausePreview?.();host.inert=true;const box=origin?.getBoundingClientRect(),base=phone.getBoundingClientRect();const layer=node('section',`phone-layer${moment?' phone-layer__moment':''}${trailer?' phone-layer__trailer':''}${video?' phone-layer__video':''}`);layer.append(child);stack.append(layer);if(moment||trailer){const close=node('button','ivi-icon-button phone-layer__moment-close');close.type='button';close.setAttribute('aria-label',moment?'Закрыть момент':'Закрыть трейлер');close.append(createIcon({name:'cross',size:16}));const dismiss=moment?closeMomentToContent:closeLayer;close.addEventListener('pointerup',event=>{event.stopPropagation();dismiss();});close.addEventListener('click',()=>dismiss());layer.append(close);}else{const back=node('div','phone-layer__back');back.append(createIconButton({icon:'back',onPress:closeLayer}));layer.append(back);}layer.cleanup=()=>child.destroy?.();
+function openLayer(child,origin,{moment=false,trailer=false,video=false,animateEntry=true}={}){screen.pausePreview?.();host.inert=true;const box=origin?.getBoundingClientRect(),base=phone.getBoundingClientRect();const layer=node('section',`phone-layer${moment?' phone-layer__moment':''}${trailer?' phone-layer__trailer':''}${video?' phone-layer__video':''}`);layer.append(child);stack.append(layer);if(moment||trailer){const close=node('button','ivi-icon-button phone-layer__moment-close');close.type='button';close.setAttribute('aria-label',moment?'Закрыть момент':'Закрыть трейлер');close.append(createIcon({name:'cross',size:16}));const dismiss=moment?closeMomentToContent:closeLayer;close.addEventListener('pointerup',event=>{event.stopPropagation();dismiss();});close.addEventListener('click',()=>dismiss());layer.append(close);}else{const back=node('div','phone-layer__back');back.append(createNavigationBar({width:phone.clientWidth,onBack:closeLayer}));layer.append(back);}layer.cleanup=()=>child.destroy?.();
  if(moment&&box){
   layer.originCard=origin;layer.momentOrigin=momentCardOrigin(origin);
   const snapshot=origin.cloneNode(true);snapshot.removeAttribute('id');snapshot.removeAttribute('aria-label');snapshot.setAttribute('aria-hidden','true');snapshot.inert=true;snapshot.classList.add('moment-card-snapshot');snapshot.hidden=true;const sourceTitle=origin.querySelector('.ivi-moment-card__title');
@@ -176,8 +192,15 @@ function openLayer(child,origin,{moment=false,trailer=false,video=false,animateE
 function textScreen(title,text){const page=node('div','phone-layer__scroll');page.append(node('div','phone-status-space'),createNavigationBar(),node('h2','phone-layer__heading',title),node('p','phone-layer__text',text));openLayer(page);enableDrag(page);}
 function rate(){const page=node('div','phone-layer__scroll');page.append(node('div','phone-status-space'),createNavigationBar(),node('h2','phone-layer__heading','Твоя оценка'));const choices=node('div','rating-choices');for(let i=1;i<=10;i++)choices.append(createButton({size:'Small',type:ratings[state.key]===i?'Primary':'Secondary',label:String(i),onPress:()=>{ratings[state.key]=i;screen.setRated(i);closeLayer();toast('Оценка сохранена');}}));page.append(choices);openLayer(page);}
 function openVideo(data={},seconds=0,{deferPlay=false,animateEntry=true}={}){
+ if(data.full){
+  const uploaded=media[state.key].full;
+  const page=createVideoPlayer({width:phone.clientWidth,title:data.title||current().title,episode:data.episode||(current().variant==='Serial'?'Сезон 1 серия 1':''),startAt:data.startAt??seconds,durationSeconds:data.durationSeconds||2520,videoSrc:uploaded||current().demoVideoSrc||current().moments[0]?.videoSrc,imageSrc:data.imageSrc||current().cover.posterImage,demo:!uploaded,muted:silentPreview||!uploaded});
+  const layer=openLayer(page,null,{video:true,animateEntry});
+  layer.pauseMedia=()=>page.setPlaying(false);layer.resumeMedia=()=>page.setPlaying(true);
+  return {layer,page,video:page.querySelector('video')};
+ }
  const trailer=!data.full;const page=node('div',`player${trailer?' player--trailer':''}`);let video;
- const src=data.full?(media[state.key].full||''):(data.videoSrc||media[state.key].trailer||current().cover.fullVideoSrc||current().cover.videoSrc);
+ const src=data.videoSrc||media[state.key].trailer||current().cover.fullVideoSrc||current().cover.videoSrc;
  if(src){video=node('video');video.src=src;video.poster=data.imageSrc||current().cover.trailerImage;video.playsInline=true;video.muted=silentPreview;video.defaultMuted=silentPreview;video.controls=!trailer;video.addEventListener('loadedmetadata',()=>{video.currentTime=Math.min(seconds,video.duration||seconds);if(!deferPlay)video.play().catch(()=>{});},{once:true});page.append(video);}
  else{const poster=node('img');poster.src=data.imageSrc||current().cover.trailerImage;poster.alt='';page.append(poster);}
  let hintTimer,hint;
@@ -185,9 +208,9 @@ function openVideo(data={},seconds=0,{deferPlay=false,animateEntry=true}={}){
   if(current().moments.length&&!swipeHintSeen){
    hint=node('div','player__swipe-hint');hint.hidden=true;
    const gesture=node('img','player__swipe-icon');gesture.src=new URL('./assets/icons/swipe-up.svg',import.meta.url).href;gesture.alt='';
-   hint.append(gesture,node('span','player__swipe-label',`Проведи вверх, чтобы посмотреть короткие фрагменты из ${current().variant==='Movie'?'фильма':'сериала'}`));page.append(hint);
+   hint.append(gesture,node('span','player__swipe-label',`Проведи вверх, чтобы посмотреть короткие фрагменты из ${current().variant==='Film'?'фильма':'сериала'}`));page.append(hint);
   }
- }else{const controls=node('div','player__controls');controls.append(node('h2','',data.title||current().title));if(!src)controls.append(node('p','player__caption','Видео не загружено. Добавь файл в настройках прототипа.'));page.append(controls);}
+ }
  page.destroy=()=>{clearTimeout(hintTimer);video?.pause();video?.removeAttribute('src');video?.load();};
  const layer=openLayer(page,null,{trailer,video:true,animateEntry});
  layer.pauseMedia=()=>video?.pause();
@@ -298,13 +321,13 @@ function endMomentBack(layer,view,commit){
 }
 function openMoment(data){
  const key=state.key,title=current();
- const moments=title.moments.map((m,i)=>({...m,videoSrc:media[key].moments[i]||m.videoSrc||'',preparedVideo:prepareMoment(key,i)?.video||null,contentTitle:title.title,posterSrc:key==='serial'?new URL('./assets/moment-screen/raw-3.png',import.meta.url).href:title.cover.trailerImage,saved:saved[key],duration:m.duration||24,progress:0}));
+ const moments=title.moments.map((m,i)=>({...m,videoSrc:media[key].moments[i]||m.videoSrc||'',preparedVideo:prepareMoment(key,i)?.video||null,contentTitle:title.title,contentType:title.variant,posterSrc:key==='serial'?new URL('./assets/moment-screen/raw-3.png',import.meta.url).href:title.cover.trailerImage,saved:saved[key],duration:m.duration||24,progress:0}));
  let layer;
  const view=createMomentScreen({width:phone.clientWidth,height:phone.clientHeight,moments,momentIndex:data.index??0,autoplay:false,demoPlayback:true,muted:silentPreview,
   onAcquireVideo:video=>acquireMomentVideo(key,video),onReleaseVideo:video=>releaseMomentVideo(key,video),
   onBackGestureStart:()=>beginMomentBack(layer,view),onBackGestureMove:distance=>moveMomentBack(layer,distance),onBackGestureEnd:commit=>endMomentBack(layer,view,commit),onBackGestureCancel:()=>cancelMomentBack(layer,view),
   onBackToTrailer:()=>{if(beginMomentBack(layer,view))endMomentBack(layer,view,true);},
-  onOpenTitle:()=>closeMomentToContent(),onContinue:info=>{view.setState('Paused');openVideo({title:title.title,videoSrc:media[key].full||'',full:true},info.seconds);},
+  onOpenTitle:()=>closeMomentToContent(),onWatchFromStart:()=>{openVideo({title:title.title,episode:title.variant==='Serial'?'Сезон 1 серия 1':'',full:true,startAt:0});},onContinue:info=>{openVideo({title:title.title,episode:view.getMomentIndex()!=null?title.moments[view.getMomentIndex()]?.episode:'',full:true},info.seconds);},
   onSaveChange:value=>{saved[key]=value;screen.setSaved(value);toast(value?'Добавлено в избранное':'Удалено из избранного');},
   onShare:()=>navigator.clipboard?.writeText(location.href).then(()=>toast('Ссылка скопирована')).catch(()=>toast('Не удалось скопировать ссылку'))});
  const origin=data.card||screen.querySelectorAll('.ivi-moment-card')[data.index??0]||null;
@@ -328,7 +351,7 @@ function render({keepLayers=false}={}){
  const custom=editableCover();
  const cover={...custom,videoSrc:media[state.key].trailer||custom.videoSrc||'',fullVideoSrc:media[state.key].trailer||custom.fullVideoSrc||custom.videoSrc||'',saved:saved[state.key],rated:Boolean(ratings[state.key]),descriptionType:state.personalized?'AI':'Default',description:state.cover[state.key].ordinary??title.ordinary};
  const moments=title.moments.map((moment,index)=>({...moment,videoSrc:media[state.key].moments[index]||moment.videoSrc||''}));
- screen=createContentDetailScreen({...title,moments,width:phone.clientWidth,activeTab:state.activeTab,cover,blocks:state.blocks,feedbackSummary:{...title.summary,personalized:state.personalized},rating:{rating:cover.rating,count:cover.ratingCount,ownRating:ratings[state.key]},onTabChange,onTabReselect,onBack:()=>location.href='index.html',onOpenTrailer:openVideo,onOpenVideo:openVideo,onOpenMoment:openMoment,onWatch:()=>openVideo({title:cover.title,full:true}),onOpenSeries:data=>openVideo({...data,full:true}),onRate:rate,onSaveChange:value=>{saved[state.key]=value;toast(value?'Добавлено в избранное':'Удалено из избранного');},onDownload:()=>toast('Видео недоступно для скачивания в прототипе'),onShare:()=>{navigator.clipboard?.writeText(location.href).then(()=>toast('Ссылка скопирована')).catch(()=>toast('Не удалось скопировать ссылку'));},onOpenFeedback:review=>textScreen(review.author||'Отзыв',review.text),onOpenPerson:person=>textScreen(person.name,person.subtitle||''),onOpenCompilation:item=>textScreen(item.title,'Подборка'),onOpenRecommendation:()=>toast('Карточка этого фильма пока не добавлена в прототип')});
+ screen=createContentDetailScreen({...title,moments,width:phone.clientWidth,activeTab:state.activeTab,activeSeason:state.activeSeason[state.key],onSeasonChange:season=>state.activeSeason[state.key]=season,cover,blocks:state.blocks,feedbackSummary:{...title.summary,personalized:state.personalized},rating:{rating:cover.rating,count:cover.ratingCount,ownRating:ratings[state.key]},onTabChange,onTabReselect,onOpenFriendRatings:scrollToFriendRatings,onBack:()=>location.href='index.html',onOpenTrailer:openVideo,onOpenVideo:openVideo,onOpenMoment:openMoment,onWatch:()=>openVideo({title:cover.title,full:true}),onOpenSeries:data=>openVideo({...data,full:true}),onRate:rate,onSaveChange:value=>{saved[state.key]=value;toast(value?'Добавлено в избранное':'Удалено из избранного');},onDownload:()=>toast('Видео недоступно для скачивания в прототипе'),onShare:()=>{navigator.clipboard?.writeText(location.href).then(()=>toast('Ссылка скопирована')).catch(()=>toast('Не удалось скопировать ссылку'));},onOpenFeedback:review=>textScreen(review.author||'Отзыв',review.text),onOpenPerson:person=>textScreen(person.name,person.subtitle||''),onOpenCompilation:item=>textScreen(item.title,'Подборка'),onOpenRecommendation:()=>toast('Карточка этого фильма пока не добавлена в прототип')});
  screen.querySelector(':scope > .ivi-status-bar')?.replaceWith(node('div','phone-status-space'));
  host.replaceChildren(screen);host.scrollTop=0;const tabs=screen.querySelector('.ivi-tabs-block');if(tabs)tabs.dataset.pin=String(Math.max(0,tabs.offsetTop-89));host.scrollTop=scroll;updateTopFade();
  prepareMoment(state.key,0);

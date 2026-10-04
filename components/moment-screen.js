@@ -12,6 +12,7 @@ export const momentScreenDefaults = {
   state: 'Default',
   title: 'Как думает убийца',
   contentTitle: 'Ганнибал',
+  contentType: 'Serial',
   episode: 'Сезон 1 серия 1',
   continuationTime: '04:11',
   continuationSeconds: 251,
@@ -49,7 +50,7 @@ export function createMomentBottomSide(options = {}) {
   pressable(open, { down: () => open.classList.add('is-pressed'), up: () => open.classList.remove('is-pressed'), activate: () => p.onOpenTitle?.() });
   let saved = Boolean(p.saved), save;
   const drawSave = () => {
-    const next = createButton({ type: 'Transparent', size: 'Big', content: 'Icon', icon: saved ? 'bookmark-fill' : 'bookmark', iconColor: saved ? 'var(--ivi-action-primary-default)' : '#fff', onPress: () => { saved = !saved; drawSave(); p.onSaveChange?.(saved); } });
+    const next = createButton({ type: 'Transparent', size: 'Big', content: 'Icon', icon: saved ? 'bookmark-fill' : 'bookmark', iconColor: saved ? 'var(--ivi-action-primary-default)' : 'var(--ivi-text-onaccent)', onPress: () => { saved = !saved; drawSave(); p.onSaveChange?.(saved); } });
     next.classList.add('ivi-moment-bottom__save');
     if (save) save.replaceWith(next);
     else content.append(next);
@@ -103,7 +104,7 @@ export function createMomentScreen(options = {}) {
   const bottom = createMomentBottomSide({ ...current, width: p.width, progress: value,
     onSeekStart: () => { rewindFrom = state; setState('Rewinding'); },
     onSeekPreview: next => bottom.setRewinding(true, next, Number(current.duration) || 0),
-    onSeek: ({ progress: next }) => { value = next; if (video && Number.isFinite(video.duration)) video.currentTime = next * video.duration; setState(rewindFrom === 'Ended' && next < 1 ? 'Paused' : rewindFrom); p.onSeek?.(next); },
+    onSeek: ({ progress: next }) => { value = next; if (video && Number.isFinite(video.duration)) video.currentTime = next * video.duration; setState(next >= 1 ? 'Ended' : rewindFrom === 'Ended' ? 'Paused' : rewindFrom); p.onSeek?.(next); },
     onSeekCancel: () => setState(rewindFrom),
     onOpenTitle: () => { setState('Paused'); p.onOpenTitle?.(current); },
     onSaveChange: saved => {
@@ -163,14 +164,15 @@ export function createMomentScreen(options = {}) {
   }
   function drawActions() {
     actions.replaceChildren();
-    const like = createButton({ type: 'Transparent', size: 'Big', content: 'Icon', icon: liked ? 'heart-fill' : 'heart', iconColor: liked ? 'var(--ivi-action-primary-default)' : '#fff', textUnderIcon: true, iconText: String(likes), onPress: () => { liked = !liked; likes += liked ? 1 : -1; current.liked = liked; current.likes = likes; Object.assign(moments[index], { liked, likes }); drawActions(); p.onLikeChange?.(liked, current); } });
+    const like = createButton({ type: 'Transparent', size: 'Big', content: 'Icon', icon: liked ? 'heart-fill' : 'heart', iconColor: liked ? 'var(--ivi-action-primary-default)' : 'var(--ivi-text-onaccent)', textUnderIcon: true, iconText: String(likes), onPress: () => { liked = !liked; likes += liked ? 1 : -1; current.liked = liked; current.likes = likes; Object.assign(moments[index], { liked, likes }); drawActions(); p.onLikeChange?.(liked, current); } });
     const share = createButton({ type: 'Transparent', size: 'Big', content: 'Icon', icon: 'share-arrow', onPress: () => p.onShare?.(current) });
     actions.append(like, share);
   }
-  function pauseTicker() { if (timer) clearInterval(timer); timer = null; video?.pause(); }
+  let playbackRequest = 0;
+  function pauseTicker() { playbackRequest++; if (timer) clearInterval(timer); timer = null; video?.pause(); }
   function startTicker() {
     if (state !== 'Default') return;
-    if (video) { video.play().catch(() => setState('Paused')); return; }
+    if (video) { const request=++playbackRequest; video.play().catch(() => { if (request===playbackRequest && ['Default','Loading'].includes(state)) setState('Paused'); }); return; }
     if (!p.demoPlayback || timer) return;
     timer = setInterval(() => {
       if (!root.isConnected) { pauseTicker(); return; }
@@ -193,10 +195,11 @@ export function createMomentScreen(options = {}) {
     if (next === 'Loading') center.append(node('span', 'ivi-moment-screen__spinner'));
     if (next === 'Ended') {
       value = 1; bottom.setProgress(1);
+      const beginning = createButton({ type: 'Primary', size: 'Big', content: 'Text', width: p.width - 24, label: `Смотреть ${current.contentType === 'Film' || current.contentType === 'Movie' ? 'фильм' : 'сериал'} с начала`, caption: false, onPress: () => { pauseTicker(); p.onWatchFromStart?.({ ...current, seconds: 0 }); } });
       const more = createButton({ type: 'Transparent', size: 'Big', content: 'Text', width: p.width - 24, label: 'Смотреть продолжение', caption: true, captionText: `${current.episode} | ${current.continuationTime}`, onPress: () => { pauseTicker(); p.onContinue?.({ ...current, seconds: current.continuationSeconds }); } });
-      const repeat = createButton({ type: 'Transparent', size: 'Big', content: 'Text', label: 'Повторить момент', caption: false, width: p.width - 24, onPress: () => { value = 0; bottom.setProgress(0); if (video) video.currentTime = 0; setState('Default'); } });
+      const repeat = createButton({ type: 'Tertiary', size: 'Big', content: 'Text', label: 'Повторить момент', caption: false, width: p.width - 24, onPress: () => { value = 0; bottom.setProgress(0); if (video) video.currentTime = 0; setState('Default'); } });
       repeat.classList.add('ivi-moment-screen__repeat');
-      center.append(more, repeat);
+      center.append(beginning, more, repeat);
     }
     if (next === 'Error') {
       center.append(node('span', 'ivi-moment-screen__error ivi-text-medium-text-small', 'Не загрузилось. Попробуйте ещё раз'));
@@ -219,7 +222,7 @@ export function createMomentScreen(options = {}) {
     clearIncoming();
     if (next < 0 || next >= moments.length) return;
     incoming = createMomentScreen({ ...p, ...moments[next], preparedVideo: null, videoSrc: '', width: p.width, height: p.height, progress: 0, state: 'Default', autoplay: false, moments: null,
-      onStateChange: null, onMomentChange: null, onLikeChange: null, onSaveChange: null, onShare: null, onOpenTitle: null, onContinue: null });
+      onStateChange: null, onMomentChange: null, onLikeChange: null, onSaveChange: null, onShare: null, onOpenTitle: null, onContinue: null, onWatchFromStart: null });
     incoming.classList.add('ivi-moment-screen__incoming');
     incoming.style.transform = `translate3d(0,${direction * (root.clientHeight || p.height)}px,0)`;
     root.append(incoming);

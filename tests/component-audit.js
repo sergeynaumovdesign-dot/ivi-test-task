@@ -10,6 +10,9 @@ import { createPoster } from '../components/poster.js';
 import { createFriendRate } from '../components/friend-rate.js';
 import { createPersonCard } from '../components/person-card.js';
 import { createContentDetailScreen } from '../components/content-detail-screen.js';
+import { createVideoPlayer } from '../components/video-player.js';
+import { createButton } from '../components/button.js';
+import { titles } from '../prototype-data.js';
 await document.fonts.ready;
 await Promise.all([400,500,700].map(w=>document.fonts.load(`${w} 16px "IVI Sans AI SVG"`)));
 const results=document.querySelector('#results'),fixtures=document.querySelector('#fixtures'),stage=document.querySelector('#test-stage');
@@ -66,5 +69,74 @@ await test('Content Screen: один переключатель скрывает
  assert(screen.querySelector('.ivi-content-detail-screen__section--videos'),'Блок видео не собран');
  assert(!screen.querySelector('.ivi-feedback-block'),'Выключенный блок отзывов отображается');
  screen.destroy();screen.remove();
+});
+await test('Content Screen: выбранный сезон и переключение списка',()=>{
+ let selected;const screen=createContentDetailScreen({activeTab:1,activeSeason:3,onSeasonChange:season=>selected=season});stage.append(screen);
+ assert(screen.querySelector('.ivi-season[aria-selected="true"]').getAttribute('aria-label')==='Сезон 3','Начальный сезон сброшен');
+ assert(screen.querySelector('.ivi-series__row').textContent.includes('Серия 1'),'Показан список другого сезона');
+ screen.querySelectorAll('.ivi-season')[0].click();assert(selected===1,'Смена сезона не передана экрану');
+ assert(screen.querySelector('.ivi-series__row').textContent.includes('Аперитив'),'Список не обновлён');screen.destroy();screen.remove();
+});
+await test('Content Screen: подписи фильма и отступы под табами',()=>{
+ const film=createContentDetailScreen({variant:'Film'});stage.append(film);
+ assert(film.textContent.includes('Материалы фильма')&&film.textContent.includes('Фильм в подборках'),'Остались подписи сериала');film.destroy();film.remove();
+ const serial=createContentDetailScreen();stage.append(serial);const tabs=serial.querySelector('.ivi-tabs-block');
+ assert(getComputedStyle(tabs.nextElementSibling).paddingTop==='20px','Нет отступа 20 под табами');
+ assert(getComputedStyle(serial.querySelector(':scope > .ivi-content-detail-screen__season-panel')).paddingTop==='20px','Нет отступа 20 у сезонов');serial.destroy();serial.remove();
+});
+await test('Friend Rate: длинное имя на 320 px, неизменные подпись и оценка',async()=>{
+ for(const score of [7,8,10]){
+  const friend=createFriendRate({name:'Александр Александрович Миккельсен',score,width:320});stage.append(friend);await frame();
+  const name=friend.querySelector('.ivi-friend-rate__name'),suffix=friend.querySelector('.ivi-friend-rate__suffix'),badge=friend.querySelector('.ivi-tag');
+  assert(name.textContent==='Александр Александрович Миккельсен','Имя обрезано по числу символов');
+  assert(name.scrollWidth>name.clientWidth,'Не включилось сокращение по ширине');
+  assert(suffix.clientWidth>=suffix.scrollWidth,'Подпись обрезана');
+  assert(badge.getBoundingClientRect().right<=friend.getBoundingClientRect().right,'Оценка вышла за границы');
+  assert(suffix.textContent===(score>=8?'рекомендует':'поставил оценку'),'Граница 8 обработана неверно');friend.remove();
+ }
+});
+await test('Friend Rate: переход с вкладки сезонов к оценкам друзей',()=>{
+ let target;const screen=createContentDetailScreen({activeTab:1,onOpenFriendRatings:section=>target=section});stage.append(screen);
+ screen.querySelector('.ivi-friend-rate').click();assert(target?.dataset.section==='friends','Нет целевого блока');
+ assert(!screen.querySelector('.ivi-content-detail-screen__content').hidden,'Оценки скрыты во вкладке');
+ assert(screen.querySelector('[role="tab"][aria-selected="true"]').textContent==='О сериале','Вкладка не обновлена');screen.destroy();screen.remove();
+});
+await test('Button: состояния используют семантические токены',()=>{
+ const container=document.createElement('div');container.style.setProperty('--ivi-action-primary-default','rgb(1, 2, 3)');container.style.setProperty('--ivi-action-primary-disabled','rgb(4, 5, 6)');stage.append(container);
+ for(const state of ['Default','Disabled']){const button=createButton({state});container.append(button);assert(getComputedStyle(button.querySelector('.ivi-button__face')).backgroundColor===(state==='Default'?'rgb(1, 2, 3)':'rgb(4, 5, 6)'),'Цвет взят из выгрузки метрик вместо токена');}container.remove();
+});
+await test('Плеер: позиция начала, пауза и продолжение',async()=>{
+ const player=createVideoPlayer({title:'Ганнибал',episode:'Сезон 1 серия 1',startAt:251});stage.append(player);
+ assert(player.querySelector('.ivi-video-player__time').textContent.startsWith('4:11'),'Позиция начала потеряна');
+ player.querySelector('.ivi-button').click();const paused=player.getPosition();await new Promise(r=>setTimeout(r,220));
+ assert(player.getPosition()===paused,'Позиция движется на паузе');assert(player.dataset.playing==='false','Пауза не отражена');
+ player.querySelector('.ivi-button').click();await new Promise(r=>setTimeout(r,220));assert(player.getPosition()>paused,'Продолжение не работает');player.destroy();player.remove();
+});
+await test('Момент: перемотка в конец и продолжение с позиции серии',()=>{
+ let continuation;const moment=createMomentScreen({...titles.serial.moments[0],videoSrc:'',state:'Paused',onContinue:data=>continuation=data});stage.append(moment);
+ const bar=moment.querySelector('.ivi-progress-bar'),hit=bar.querySelector('.ivi-progress-bar__hit'),box=bar.getBoundingClientRect();
+ hit.setPointerCapture=()=>{}; // Synthetic pointers have no browser capture session.
+ hit.dispatchEvent(new PointerEvent('pointerdown',{button:0,pointerId:11,clientX:box.right-4,clientY:box.top+8,bubbles:true}));
+ hit.dispatchEvent(new PointerEvent('pointerup',{button:0,pointerId:11,clientX:box.right-4,clientY:box.top+8,bubbles:true}));
+ assert(moment.getState()==='Ended','Перемотка в конец не завершила момент');
+ moment.querySelector('.ivi-moment-screen__center button[aria-label="Смотреть продолжение"]').click();
+ assert(continuation?.seconds===251&&continuation.episode==='Сезон 1 серия 1','Позиция или серия потеряна');moment.destroy();moment.remove();
+});
+await test('Демо-контент: разные серии и отзывы',()=>{
+ for(const season of titles.serial.episodeDescriptions)assert(new Set(season).size===season.length,'Повторяются описания серий');
+ for(const title of Object.values(titles)){assert(new Set(title.reviews.map(x=>x.text)).size===title.reviews.length,'Повторяются отзывы');assert(title.reviews.every(x=>!x.text.includes('Материалы фильма')),'Посторонний заголовок в отзыве');}
+});
+await test('Завершённый момент: просмотр с начала, продолжение и повтор',()=>{
+ for(const contentType of ['Serial','Film']){
+  let start,continued;
+  const view=createMomentScreen({state:'Ended',contentType,autoplay:false,videoSrc:'',onWatchFromStart:data=>start=data.seconds,onContinue:data=>continued=data.seconds});stage.append(view);
+  const actions=[...view.querySelector('.ivi-moment-screen__center').querySelectorAll('button')];
+  assert(actions.length===3,'Нет трёх действий');
+  assert(actions[0].textContent===`Смотреть ${contentType==='Film'?'фильм':'сериал'} с начала`,'Не учтён тип тайтла');
+  actions[0].click();assert(start===0,'Просмотр не начинается с нуля');assert(view.getState()==='Ended','Просмотр с начала сбрасывает завершённый момент');
+  actions[1].click();assert(continued===251,'Продолжение потеряло позицию');assert(view.getState()==='Ended','Продолжение сбрасывает завершённый момент');
+  actions[2].click();assert(view.getState()==='Default','Повтор не запускает момент');
+  view.destroy();view.remove();
+ }
 });
 const failed=results.querySelectorAll('.fail').length;document.title=failed?`${failed} ошибок`:`Проверки пройдены (${results.children.length})`;document.body.dataset.testResult=failed?'fail':'pass';

@@ -4,7 +4,7 @@ import { createTextBlock, textBlockDefaults } from './text-block.js';
 
 export const seriesDefaults = {
   width: 375,
-  title: 'Аперетив',
+  title: 'Аперитив',
   duration: '42 мин',
   durationSeconds: 2520,
   state: 'Default',
@@ -66,7 +66,7 @@ export function createSeries(options = {}) {
     title.prepend(lock);
   }
   details.append(title, node('span', 'ivi-series__duration ivi-text-regular-text-small', p.duration));
-  const download = createButton({ type: 'Transparent', size: 'Big', content: 'Icon', icon: 'download', iconWidth: 48, state: unavailable ? 'Disabled' : 'Default', onPress: event => { event.stopPropagation(); p.onDownload?.({ title: p.title }); } });
+  const download = createButton({ type: 'Tertiary', size: 'Big', content: 'Icon', icon: 'download', iconWidth: 48, state: unavailable ? 'Disabled' : 'Default', onPress: event => { event.stopPropagation(); p.onDownload?.({ title: p.title }); } });
   download.classList.add('ivi-series__download');
   download.addEventListener('pointerdown', event => event.stopPropagation());
   row.append(preview, details, download);

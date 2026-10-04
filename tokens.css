@@ -112,6 +112,8 @@
   --ivi-ai-gradient-start: var(--ivi-color-pink-40);
   --ivi-ai-gradient-end: var(--ivi-color-purple-40);
   --ivi-ai-gradient-startsoft: var(--ivi-color-pink-20);
+  /* Compound fill from the Figma summary panel; CSS gradients are not color variables. */
+  --ivi-ai-summary-surface: linear-gradient(180deg,transparent 0%,var(--ivi-background-canvas) 90.379%),linear-gradient(104.853deg,#1e1520 0%,#27171e 26.923%,#201628 88.322%,#24192a 100%);
   --ivi-text-onaccent: var(--ivi-color-gray-0);
   --ivi-text-inverse: var(--ivi-color-gray-100);
   --ivi-text-disabled: var(--ivi-color-white-alpha-30);
