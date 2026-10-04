@@ -7,7 +7,7 @@ import {createProgressBar} from './components/progress-bar.js';
 import {createIcon} from './components/icon.js';
 import {node} from './components/core.js';
 const phone=document.querySelector('#phone'),host=document.querySelector('#screen'),stack=document.querySelector('#screen-stack');
-const systemStatusBar=createStatusBar({width:375});systemStatusBar.id='phone-system-status';phone.append(systemStatusBar);
+const systemStatusBar=createStatusBar({width:phone.clientWidth});systemStatusBar.id='phone-system-status';phone.append(systemStatusBar);
 const prototypeParams=new URLSearchParams(location.search);
 const silentPreview=prototypeParams.get('muted')==='1';
 const state={key:'serial',personalized:true,activeTab:0,blocks:{friends:true,moments:true,feedback:true},cover:{serial:{},movie:{}},tabScroll:{serial:[null,null],movie:[null,null]}};
@@ -132,8 +132,8 @@ function closeLayer(animate=true){
  layer.closing=true;
  if(layer.returnLayer){
   const duration=240,opts={duration,easing:'cubic-bezier(.2,.7,.2,1)',fill:'forwards'};
-  const outgoing=layer.animate([{transform:'translateY(0)'},{transform:'translateY(812px)'}],opts);
-  layer.returnAnimation=layer.returnLayer.animate([{transform:'translateY(-812px)'},{transform:'translateY(0)'}],opts);
+  const outgoing=layer.animate([{transform:'translateY(0)'},{transform:`translateY(${phone.clientHeight}px)`}],opts);
+  layer.returnAnimation=layer.returnLayer.animate([{transform:`translateY(${-phone.clientHeight}px)`},{transform:'translateY(0)'}],opts);
   outgoing.finished.then(finish,finish);setTimeout(finish,duration+60);
  }else if(layer.classList.contains('phone-layer__trailer')){
   const from=getComputedStyle(layer).transform;
@@ -168,9 +168,9 @@ function openLayer(child,origin,{moment=false,trailer=false,video=false,animateE
   if(sourceTitle&&snapshotTitle)snapshotTitle.style.width=`${sourceTitle.offsetWidth}px`;
   layer.append(snapshot);layer.cardSnapshot=snapshot;
   const previousVisibility=origin.style.visibility,cleanup=layer.cleanup;
-  layer.cleanup=()=>{origin.style.visibility=previousVisibility;layer.momentEntryAnimation?.cancel();layer.cardAnimation?.cancel();layer.textAnimations?.forEach(animation=>animation.cancel());cleanup();};
+  layer.cleanup=()=>{if(layer.originCard)layer.originCard.style.visibility=previousVisibility;layer.momentEntryAnimation?.cancel();layer.cardAnimation?.cancel();layer.textAnimations?.forEach(animation=>animation.cancel());cleanup();};
  }
- if(!reduced.matches&&animateEntry){if(moment&&box)animateMomentCard(layer,false);else if(trailer)layer.trailerEntryAnimation=layer.animate([{transform:'translateY(812px)'},{transform:'translateY(0)'}],{duration:200,easing:momentSwipeEasing,fill:'backwards'});else layer.animate([{transform:'translateX(100%)'},{transform:'translateX(0)'}],{duration:video?200:320,easing:'cubic-bezier(.2,.7,.2,1)'});}
+ if(!reduced.matches&&animateEntry){if(moment&&box)animateMomentCard(layer,false);else if(trailer)layer.trailerEntryAnimation=layer.animate([{transform:`translateY(${phone.clientHeight}px)`},{transform:'translateY(0)'}],{duration:200,easing:momentSwipeEasing,fill:'backwards'});else layer.animate([{transform:'translateX(100%)'},{transform:'translateX(0)'}],{duration:video?200:320,easing:'cubic-bezier(.2,.7,.2,1)'});}
  return layer;
 }
 function textScreen(title,text){const page=node('div','phone-layer__scroll');page.append(node('div','phone-status-space'),createNavigationBar(),node('h2','phone-layer__heading',title),node('p','phone-layer__text',text));openLayer(page);enableDrag(page);}
@@ -221,9 +221,9 @@ function enableTrailerSwipe(trailerLayer,page,video){
     gesture.moment=openMoment({index:0,fromTrailer:trailerLayer,deferPlay:true});
    }
   }
-  gesture.offset=gesture.direction<0?Math.max(-812,Math.min(0,dy)):Math.max(0,Math.min(812,dy));
+  gesture.offset=gesture.direction<0?Math.max(-phone.clientHeight,Math.min(0,dy)):Math.max(0,Math.min(phone.clientHeight,dy));
   trailerLayer.style.transform=`translateY(${gesture.offset}px)`;
-  if(gesture.moment)gesture.moment.layer.style.transform=`translateY(${812+gesture.offset}px)`;
+  if(gesture.moment)gesture.moment.layer.style.transform=`translateY(${phone.clientHeight+gesture.offset}px)`;
   event.preventDefault();
  });
  const end=event=>{
@@ -233,13 +233,13 @@ function enableTrailerSwipe(trailerLayer,page,video){
   const up=currentGesture.direction<0;
   const distance=Math.abs(currentGesture.offset),velocity=distance/Math.max(1,performance.now()-currentGesture.time);
   const complete=event.type!=='pointercancel'&&(distance>120||(distance>35&&velocity>.6));
-  const target=complete?(up?-812:812):0;
-  const duration=reduced.matches?0:(!up&&complete?160:momentSwipeDuration(target-currentGesture.offset,812));
+  const target=complete?(up?-phone.clientHeight:phone.clientHeight):0;
+  const duration=reduced.matches?0:(!up&&complete?160:momentSwipeDuration(target-currentGesture.offset,phone.clientHeight));
   const moment=currentGesture.moment;let finished=false,animations=[];
   const settle=()=>{
    if(finished)return;finished=true;animations.forEach(animation=>animation.cancel());
    if(up){
-    if(complete){trailerLayer.style.transform='translateY(-812px)';moment.layer.style.transform='';moment.view.play();scheduleMomentSwipeHint(moment.layer,moment.view);}
+    if(complete){trailerLayer.style.transform=`translateY(${-phone.clientHeight}px)`;moment.layer.style.transform='';moment.view.play();scheduleMomentSwipeHint(moment.layer,moment.view);}
     else{trailerLayer.style.transform='';moment.layer.cleanup?.();moment.layer.remove();video?.play().catch(()=>{});}
    }else if(complete){trailerLayer.style.transform='';closeLayer(false);}
    else{trailerLayer.style.transform='';video?.play().catch(()=>{});}
@@ -247,7 +247,7 @@ function enableTrailerSwipe(trailerLayer,page,video){
   if(!duration){settle();return;}
   const opts={duration,easing:momentSwipeEasing,fill:'forwards'};
   animations=[trailerLayer.animate([{transform:`translateY(${currentGesture.offset}px)`},{transform:`translateY(${target}px)`}],opts)];
-  if(moment)animations.push(moment.layer.animate([{transform:`translateY(${812+currentGesture.offset}px)`},{transform:`translateY(${812+target}px)`}],opts));
+  if(moment)animations.push(moment.layer.animate([{transform:`translateY(${phone.clientHeight+currentGesture.offset}px)`},{transform:`translateY(${phone.clientHeight+target}px)`}],opts));
   Promise.allSettled(animations.map(animation=>animation.finished)).then(settle);setTimeout(settle,duration+60);
  };
  page.addEventListener('pointerup',end);page.addEventListener('pointercancel',end);
@@ -262,45 +262,45 @@ function beginMomentBack(layer,view){
   created=true;
  }
  trailer.pauseMedia?.();
- trailer.style.transform='translateY(-812px)';
+ trailer.style.transform=`translateY(${-phone.clientHeight}px)`;
  layer.backGesture={trailer,created,offset:0,wasPlaying:view.getState()==='Default',settling:false};
  view.setState('Paused');
  return true;
 }
 function moveMomentBack(layer,distance){
  const gesture=layer?.backGesture;if(!gesture||gesture.settling)return;
- gesture.offset=Math.max(0,Math.min(812,distance));
+ gesture.offset=Math.max(0,Math.min(phone.clientHeight,distance));
  layer.style.transform=`translateY(${gesture.offset}px)`;
- gesture.trailer.style.transform=`translateY(${gesture.offset-812}px)`;
+ gesture.trailer.style.transform=`translateY(${gesture.offset-phone.clientHeight}px)`;
 }
 function cancelMomentBack(layer,view){
  const gesture=layer?.backGesture;if(!gesture||gesture.settling)return;
  layer.backGesture=null;layer.style.transform='';
  if(gesture.created){gesture.trailer.cleanup?.();gesture.trailer.remove();}
- else gesture.trailer.style.transform='translateY(-812px)';
+ else gesture.trailer.style.transform=`translateY(${-phone.clientHeight}px)`;
  if(gesture.wasPlaying)view.setState('Default');
 }
 function endMomentBack(layer,view,commit){
  const gesture=layer?.backGesture;if(!gesture||gesture.settling)return;
  gesture.settling=true;
- const target=commit?812:0,start=gesture.offset;
- const duration=reduced.matches?0:momentSwipeDuration(target-start,812);
+ const target=commit?phone.clientHeight:0,start=gesture.offset;
+ const duration=reduced.matches?0:momentSwipeDuration(target-start,phone.clientHeight);
  let done=false,animations=[];
  const finish=()=>{
   if(done)return;done=true;animations.forEach(animation=>animation.cancel());layer.backGesture=null;
   if(commit){layer.cleanup?.();layer.remove();gesture.trailer.style.transform='';gesture.trailer.resumeMedia?.();}
-  else{layer.style.transform='';if(gesture.created){gesture.trailer.cleanup?.();gesture.trailer.remove();}else gesture.trailer.style.transform='translateY(-812px)';if(gesture.wasPlaying)view.setState('Default');}
+  else{layer.style.transform='';if(gesture.created){gesture.trailer.cleanup?.();gesture.trailer.remove();}else gesture.trailer.style.transform=`translateY(${-phone.clientHeight}px)`;if(gesture.wasPlaying)view.setState('Default');}
  };
  if(!duration){finish();return;}
  const opts={duration,easing:momentSwipeEasing,fill:'forwards'};
- animations=[layer.animate([{transform:`translateY(${start}px)`},{transform:`translateY(${target}px)`}],opts),gesture.trailer.animate([{transform:`translateY(${start-812}px)`},{transform:`translateY(${target-812}px)`}],opts)];
+ animations=[layer.animate([{transform:`translateY(${start}px)`},{transform:`translateY(${target}px)`}],opts),gesture.trailer.animate([{transform:`translateY(${start-phone.clientHeight}px)`},{transform:`translateY(${target-phone.clientHeight}px)`}],opts)];
  Promise.allSettled(animations.map(animation=>animation.finished)).then(finish);setTimeout(finish,duration+60);
 }
 function openMoment(data){
  const key=state.key,title=current();
  const moments=title.moments.map((m,i)=>({...m,videoSrc:media[key].moments[i]||m.videoSrc||'',preparedVideo:prepareMoment(key,i)?.video||null,contentTitle:title.title,posterSrc:key==='serial'?new URL('./assets/moment-screen/raw-3.png',import.meta.url).href:title.cover.trailerImage,saved:saved[key],duration:m.duration||24,progress:0}));
  let layer;
- const view=createMomentScreen({width:375,height:812,moments,momentIndex:data.index??0,autoplay:false,demoPlayback:true,muted:silentPreview,
+ const view=createMomentScreen({width:phone.clientWidth,height:phone.clientHeight,moments,momentIndex:data.index??0,autoplay:false,demoPlayback:true,muted:silentPreview,
   onAcquireVideo:video=>acquireMomentVideo(key,video),onReleaseVideo:video=>releaseMomentVideo(key,video),
   onBackGestureStart:()=>beginMomentBack(layer,view),onBackGestureMove:distance=>moveMomentBack(layer,distance),onBackGestureEnd:commit=>endMomentBack(layer,view,commit),onBackGestureCancel:()=>cancelMomentBack(layer,view),
   onBackToTrailer:()=>{if(beginMomentBack(layer,view))endMomentBack(layer,view,true);},
@@ -309,25 +309,26 @@ function openMoment(data){
   onShare:()=>navigator.clipboard?.writeText(location.href).then(()=>toast('Ссылка скопирована')).catch(()=>toast('Не удалось скопировать ссылку'))});
  const origin=data.card||screen.querySelectorAll('.ivi-moment-card')[data.index??0]||null;
  layer=openLayer(view,origin,{moment:true,animateEntry:!data.fromTrailer&&data.animateEntry!==false});
+ layer.momentView=view;layer.originIndex=data.index??0;
  view.addEventListener('pointerdown',()=>{clearTimeout(layer.momentSwipeHintTimer);layer.momentSwipeHintTimer=null;},{once:true});
  const cleanup=layer.cleanup;
  layer.cleanup=()=>{clearTimeout(layer.momentSwipeHintTimer);cleanup();};
- if(data.fromTrailer){layer.style.transform='translateY(812px)';layer.returnLayer=data.fromTrailer;}
+ if(data.fromTrailer){layer.style.transform=`translateY(${phone.clientHeight}px)`;layer.returnLayer=data.fromTrailer;}
  if(!data.deferPlay){
   view.play();
   scheduleMomentSwipeHint(layer,view);
  }
  return{layer,view};
 }
-function render(){
+function render({keepLayers=false}={}){
  const scroll=host.scrollTop;
- while(stack.children.length){stack.lastElementChild.closing=false;closeLayer(false);}
+ if(!keepLayers)while(stack.children.length){stack.lastElementChild.closing=false;closeLayer(false);}
  screen?.destroy();
  const title=current();
  const custom=editableCover();
  const cover={...custom,videoSrc:media[state.key].trailer||custom.videoSrc||'',fullVideoSrc:media[state.key].trailer||custom.fullVideoSrc||custom.videoSrc||'',saved:saved[state.key],rated:Boolean(ratings[state.key]),descriptionType:state.personalized?'AI':'Default',description:state.cover[state.key].ordinary??title.ordinary};
  const moments=title.moments.map((moment,index)=>({...moment,videoSrc:media[state.key].moments[index]||moment.videoSrc||''}));
- screen=createContentDetailScreen({...title,moments,width:375,activeTab:state.activeTab,cover,blocks:state.blocks,feedbackSummary:{...title.summary,personalized:state.personalized},rating:{rating:cover.rating,count:cover.ratingCount,ownRating:ratings[state.key]},onTabChange,onTabReselect,onBack:()=>location.href='index.html',onOpenTrailer:openVideo,onOpenVideo:openVideo,onOpenMoment:openMoment,onWatch:()=>openVideo({title:cover.title,full:true}),onOpenSeries:data=>openVideo({...data,full:true}),onRate:rate,onSaveChange:value=>{saved[state.key]=value;toast(value?'Добавлено в избранное':'Удалено из избранного');},onDownload:()=>toast('Видео недоступно для скачивания в прототипе'),onShare:()=>{navigator.clipboard?.writeText(location.href).then(()=>toast('Ссылка скопирована')).catch(()=>toast('Не удалось скопировать ссылку'));},onOpenFeedback:review=>textScreen(review.author||'Отзыв',review.text),onOpenPerson:person=>textScreen(person.name,person.subtitle||''),onOpenCompilation:item=>textScreen(item.title,'Подборка'),onOpenRecommendation:()=>toast('Карточка этого фильма пока не добавлена в прототип')});
+ screen=createContentDetailScreen({...title,moments,width:phone.clientWidth,activeTab:state.activeTab,cover,blocks:state.blocks,feedbackSummary:{...title.summary,personalized:state.personalized},rating:{rating:cover.rating,count:cover.ratingCount,ownRating:ratings[state.key]},onTabChange,onTabReselect,onBack:()=>location.href='index.html',onOpenTrailer:openVideo,onOpenVideo:openVideo,onOpenMoment:openMoment,onWatch:()=>openVideo({title:cover.title,full:true}),onOpenSeries:data=>openVideo({...data,full:true}),onRate:rate,onSaveChange:value=>{saved[state.key]=value;toast(value?'Добавлено в избранное':'Удалено из избранного');},onDownload:()=>toast('Видео недоступно для скачивания в прототипе'),onShare:()=>{navigator.clipboard?.writeText(location.href).then(()=>toast('Ссылка скопирована')).catch(()=>toast('Не удалось скопировать ссылку'));},onOpenFeedback:review=>textScreen(review.author||'Отзыв',review.text),onOpenPerson:person=>textScreen(person.name,person.subtitle||''),onOpenCompilation:item=>textScreen(item.title,'Подборка'),onOpenRecommendation:()=>toast('Карточка этого фильма пока не добавлена в прототип')});
  screen.querySelector(':scope > .ivi-status-bar')?.replaceWith(node('div','phone-status-space'));
  host.replaceChildren(screen);host.scrollTop=0;const tabs=screen.querySelector('.ivi-tabs-block');if(tabs)tabs.dataset.pin=String(Math.max(0,tabs.offsetTop-89));host.scrollTop=scroll;updateTopFade();
  prepareMoment(state.key,0);
@@ -360,3 +361,25 @@ if(prototypeParams.get('start')==='moment'){
   openMoment({index:0,animateEntry:false});
  });
 }
+
+// Keep running video screens in place when the browser viewport changes.
+let phoneWidth=phone.clientWidth;
+new ResizeObserver(()=>{
+ const width=phone.clientWidth,height=phone.clientHeight;
+ if(width!==phoneWidth){
+  phoneWidth=width;
+  render({keepLayers:true});
+  host.inert=Boolean(stack.children.length);
+  if(stack.children.length)screen.pausePreview?.();
+  for(const layer of stack.children){
+   if(layer.momentView){
+    layer.originCard=screen.querySelectorAll('.ivi-moment-card')[layer.originIndex]||null;
+    if(layer.originCard)layer.originCard.style.visibility='hidden';
+   }
+  }
+ }
+ for(const layer of stack.children){
+  layer.momentView?.setSize({width,height});
+  if(layer.returnLayer&&!layer.backGesture)layer.returnLayer.style.transform=`translateY(${-height}px)`;
+ }
+}).observe(phone);

@@ -363,6 +363,14 @@ export function createMomentScreen(options = {}) {
   root.switchMoment = switchMoment;
   root.playSwipeHint = playSwipeHint;
   root.setMuted = muted => { p.muted = Boolean(muted); if (video) video.muted = p.muted; };
+  root.setSize = ({width=p.width,height=p.height}) => {
+    const widthChanged=width!==p.width;
+    p.width=width; p.height=height;
+    root.style.width=`${width}px`; root.style.height=`${height}px`;
+    bottom.querySelector('.ivi-progress-bar').style.width=`${width-24}px`;
+    incoming?.setSize({width,height});
+    if(widthChanged&&['Ended','Error'].includes(state)){const next=state;state='';setState(next);}
+  };
   root.destroy = () => { pauseTicker(); videoListeners?.abort(); if(borrowedVideo&&video)p.onReleaseVideo?.(video); clearTimeout(settleTimer); cancelAnimationFrame(handoffFrame); settling = false; cancelSwipeHint(); clearIncoming(); document.removeEventListener('visibilitychange', visibility); };
   if (p.autoplay && initial === 'Default') requestAnimationFrame(() => { if (root.isConnected) startTicker(); });
   return root;
