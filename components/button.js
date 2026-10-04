@@ -14,7 +14,7 @@ export function createButton(options={}) {
   let h=m.h;
   const content=[];Object.assign(face.style,{background:color(m.fill),padding:`${m.p[0]}px ${m.p[1]}px`,gap:icon&&o.type==='Transparent'?`${state==='Pressed'?3.6:4}px`:'0px',backdropFilter:o.type==='Transparent'?`blur(${10*m.h/base.h}px)`:'none'});
   if(icon){const image=node('span','ivi-button__icon');const z=m.icon[0].w;const aspect=o.icon.startsWith('heart')?16.6787/19.9993:1;Object.assign(image.style,{width:`${z}px`,height:`${z*aspect}px`,opacity:m.icon[0].o,maskImage:`url('${iconURL}')`,background:o.iconColor|| (o.type==='Tertiary'?(state==='Pressed'?'#909090':'#e0e0e0'):'#fff')});content.push(image);
-   if(o.type==='Transparent'&&o.textUnderIcon){const t=node('span','ivi-button__caption',o.iconText);textStyle(t,m.text[0]);t.style.height=`${m.text[0].h}px`;content.push(t);h+=m.text[0].h+(state==='Pressed'?3.6:4);}
+   if(o.type==='Transparent'&&o.textUnderIcon){const t=node('span','ivi-button__caption',o.iconText);textStyle(t,m.text[0]);t.style.height=`${m.text[0].h}px`;content.push(t);const scale=m.w/base.w;h=60*scale;face.style.padding=`${12*scale}px ${m.p[1]}px ${8*scale}px`;}
   }else{
    const title=node('span','ivi-button__label',o.label);textStyle(title,m.text[0]);title.style.height=`${m.text[0].h}px`;content.push(title);
    if(!small&&o.caption){const caption=node('span','ivi-button__caption',o.captionText);textStyle(caption,m.text[1]);caption.style.height=`${m.text[1].h}px`;content.push(caption);}
@@ -32,7 +32,7 @@ export function createButton(options={}) {
   shape(face,shapeID,w,h);
   // Keep the layout and hit target steady during press.
   const nominalW=small?(state==='Pressed'&&o.type!=='Transparent'?w/(m.w/base.w):w):icon?(o.iconWidth||48):o.width;
-  Object.assign(button.style,{width:`${nominalW}px`,height:`${icon&&o.textUnderIcon&&o.type==='Transparent'?68:base.h}px`});
+  Object.assign(button.style,{width:`${nominalW}px`,height:`${icon&&o.textUnderIcon&&o.type==='Transparent'?60:base.h}px`});
  }
  render(o.state);
  document.fonts.ready.then(()=>{if(button.isConnected)render(button.dataset.state);});
