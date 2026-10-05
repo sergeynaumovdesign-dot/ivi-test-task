@@ -116,27 +116,81 @@ export function createMomentScreen(options = {}) {
   let video = null;
   let videoListeners = null;
   let borrowedVideo = false;
+  let swipePlayback = null;
   let rewindFrom = 'Default';
+  function configureVideo(element, data) {
+    element.className = 'ivi-moment-screen__visual';
+    element.poster = data.imageSrc;
+    element.playsInline = true;
+    element.muted = Boolean(p.muted);
+    element.defaultMuted = Boolean(p.muted);
+    element.volume = 1;
+    element.preload = 'auto';
+    if (element.src !== data.videoSrc) element.src = data.videoSrc;
+  }
+  function startSwipePlayback(record) {
+    record.video.play().catch(() => {
+      // touchend can authorize a retry after pointerup on iOS. Once handed
+      // over, the normal playback handler owns any remaining startup failure.
+      if (swipePlayback !== record && video === record.video && !videoListeners?.signal.aborted && root.isConnected && ['Default', 'Loading'].includes(state)) {
+        if (state === 'Loading') setState('Default');
+        else startTicker();
+      }
+    });
+  }
+  function prepareSwipePlayback(next) {
+    const data = { ...p, ...moments[next] };
+    if (!incoming || !data.videoSrc) return;
+    // Reuse the player already authorized by the opening tap. Safari grants
+    // audible playback per element, so swapping elements can lose permission.
+    const element = video || data.preparedVideo || node('video');
+    const borrowed = video ? borrowedVideo : Boolean(data.preparedVideo);
+    if (element === video) {
+      videoListeners?.abort();
+      // Keep the outgoing paused frame while its player moves to the next page.
+      if (element.readyState >= 2 && element.videoWidth && element.videoHeight) {
+        const still = node('canvas', 'ivi-moment-screen__visual ivi-moment-screen__poster');
+        still.setAttribute('aria-hidden', 'true');
+        still.width = element.videoWidth; still.height = element.videoHeight;
+        try { still.getContext('2d').drawImage(element, 0, 0); media.append(still); } catch { /* The existing poster remains available. */ }
+      }
+    }
+    else if (borrowed) p.onAcquireVideo?.(element);
+    element.pause();
+    configureVideo(element, data);
+    if (element.readyState >= 1) element.currentTime = 0;
+    const previewMedia = incoming.querySelector('.ivi-moment-screen__media');
+    previewMedia.querySelector('img')?.classList.add('ivi-moment-screen__poster');
+    previewMedia.append(element);
+    swipePlayback = { video: element, index: next, borrowed };
+    // Start in the gesture handler, not transitionend: Safari requires the
+    // user's touch to authorize audible playback on this particular element.
+    startSwipePlayback(swipePlayback);
+  }
+  function clearSwipePlayback() {
+    if (!swipePlayback) return;
+    const record = swipePlayback; swipePlayback = null;
+    record.video.pause();
+    if (record.borrowed) p.onReleaseVideo?.(record.video);
+    else record.video.remove();
+    if (record.video === video) borrowedVideo = false;
+  }
   function drawMedia() {
+    const startup = swipePlayback?.index === index ? swipePlayback : null;
+    if (startup) swipePlayback = null;
     videoListeners?.abort();
-    if (borrowedVideo && video) p.onReleaseVideo?.(video);
+    if (borrowedVideo && video && video !== startup?.video) p.onReleaseVideo?.(video);
     media.replaceChildren();
     video = null;
     borrowedVideo = false;
     if (current.videoSrc) {
-      borrowedVideo = Boolean(current.preparedVideo);
-      video = current.preparedVideo || node('video', 'ivi-moment-screen__visual');
-      if (borrowedVideo) { p.onAcquireVideo?.(video); video.pause(); }
-      video.className = 'ivi-moment-screen__visual';
-      video.poster = current.imageSrc;
-      video.playsInline = true;
-      // Choose audio mode before play(), while the opening tap still authorizes it.
-      // Unmuting in a frame callback can make Safari pause the video.
-      video.muted = Boolean(p.muted);
-      video.defaultMuted = Boolean(p.muted);
-      video.volume = 1;
-      video.preload = 'auto';
-      if (video.src !== current.videoSrc) video.src = current.videoSrc;
+      borrowedVideo = startup ? startup.borrowed : Boolean(current.preparedVideo);
+      video = startup?.video || current.preparedVideo || node('video', 'ivi-moment-screen__visual');
+      if (!startup) {
+        if (borrowedVideo) { p.onAcquireVideo?.(video); video.pause(); }
+        // Choose audio mode before play(); never unmute in a frame callback.
+        configureVideo(video, current);
+      }
       video.style.opacity = borrowedVideo && video.readyState >= 2 ? '1' : '0';
       videoListeners = new AbortController();
       const signal = videoListeners.signal;
@@ -169,7 +223,7 @@ export function createMomentScreen(options = {}) {
     actions.append(like, share);
   }
   let playbackRequest = 0;
-  function pauseTicker() { playbackRequest++; if (timer) clearInterval(timer); timer = null; video?.pause(); }
+  function pauseTicker(preserveVideo = null) { playbackRequest++; if (timer) clearInterval(timer); timer = null; if (video !== preserveVideo) video?.pause(); }
   function startTicker() {
     if (state !== 'Default') return;
     if (video) {
@@ -228,7 +282,7 @@ export function createMomentScreen(options = {}) {
     cancelSwipeHint();
     if (next < 0) { p.onBackToTrailer?.(); return; }
     if (next >= moments.length) { root.classList.remove('is-bouncing'); void root.offsetWidth; root.classList.add('is-bouncing'); return; }
-    pauseTicker(); index = next; current = { ...p, ...moments[index] }; value = 0; liked = Boolean(current.liked); likes = Number(current.likes) || 0;
+    pauseTicker(swipePlayback?.index === next ? swipePlayback.video : null); index = next; current = { ...p, ...moments[index] }; value = 0; liked = Boolean(current.liked); likes = Number(current.likes) || 0;
     bottom.setMoment(current); bottom.setSaved(current.saved); drawMedia(); drawActions(); state = 'Paused'; setState('Default'); p.onMomentChange?.(index, current);
   }
   const page = node('div', 'ivi-moment-screen__page');
@@ -358,8 +412,14 @@ export function createMomentScreen(options = {}) {
     const enough = Math.abs(dy) > (root.clientHeight || p.height) * .18 || (Math.abs(dy) > 35 && Math.abs(dy) / Math.max(1, performance.now() - ended.started) > .65);
     if (ended.boundary) { p.onBackGestureEnd?.(Boolean(enough && dy > 0)); return; }
     const next = index + (ended.direction < 0 ? 1 : -1);
-    settle(Boolean(incoming && enough), next, ended.direction, !incoming && next < 0 && enough);
+    const commit = Boolean(incoming && enough);
+    if (commit) prepareSwipePlayback(next);
+    else if (state === 'Default') startTicker();
+    settle(commit, next, ended.direction, !incoming && next < 0 && enough);
   });
+  root.addEventListener('touchend', () => {
+    if (swipePlayback?.video.paused) startSwipePlayback(swipePlayback);
+  }, { passive: true });
   root.addEventListener('pointercancel', () => {
     if (!gesture) return;
     const direction = gesture.direction;
@@ -382,7 +442,7 @@ export function createMomentScreen(options = {}) {
   root.getMoments = () => moments.map(moment => ({ ...moment }));
   root.switchMoment = switchMoment;
   root.playSwipeHint = playSwipeHint;
-  root.setMuted = muted => { p.muted = Boolean(muted); if (video) video.muted = p.muted; };
+  root.setMuted = muted => { p.muted = Boolean(muted); if (video) video.muted = p.muted; if (swipePlayback) swipePlayback.video.muted = p.muted; };
   root.setSize = ({width=p.width,height=p.height}) => {
     const widthChanged=width!==p.width;
     p.width=width; p.height=height;
@@ -391,7 +451,7 @@ export function createMomentScreen(options = {}) {
     incoming?.setSize({width,height});
     if(widthChanged&&['Ended','Error'].includes(state)){const next=state;state='';setState(next);}
   };
-  root.destroy = () => { pauseTicker(); videoListeners?.abort(); if(borrowedVideo&&video)p.onReleaseVideo?.(video); clearTimeout(settleTimer); cancelAnimationFrame(handoffFrame); settling = false; cancelSwipeHint(); clearIncoming(); document.removeEventListener('visibilitychange', visibility); };
+  root.destroy = () => { pauseTicker(); clearSwipePlayback(); videoListeners?.abort(); if(borrowedVideo&&video)p.onReleaseVideo?.(video); clearTimeout(settleTimer); cancelAnimationFrame(handoffFrame); settling = false; cancelSwipeHint(); clearIncoming(); document.removeEventListener('visibilitychange', visibility); };
   if (p.autoplay && initial === 'Default') requestAnimationFrame(() => { if (root.isConnected) startTicker(); });
   return root;
 }

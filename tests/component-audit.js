@@ -111,6 +111,74 @@ await test('Moment: повторный отказ автозапуска не в
  try{view.play();await Promise.resolve();await Promise.resolve();await Promise.resolve();assert(plays===2&&view.getState()==='Paused','Отказ должен остановить попытки и отобразить паузу');}
  finally{view.destroy();view.remove();}
 });
+await test('Moment: свайп запускает звук в жесте и передаёт тот же видеоплеер после анимации',async()=>{
+ for(const muted of [false,true]){
+  let inGesture=false,plays=0,playing=false,pauses=0,acquired=0;
+  const nextVideo=document.createElement('video');
+  Object.defineProperty(nextVideo,'paused',{get:()=>!playing});
+  nextVideo.pause=()=>{pauses++;playing=false;};
+  nextVideo.play=()=>{plays++;assert(inGesture,'play() вызван после завершения жеста');assert(nextVideo.muted===muted,'Звук не соответствует настройке');playing=true;return Promise.resolve();};
+  const moments=[{...titles.serial.moments[0],videoSrc:''},{...titles.serial.moments[1],preparedVideo:nextVideo}];
+  const view=createMomentScreen({moments,autoplay:false,muted,onAcquireVideo:v=>{if(v===nextVideo)acquired++;}});stage.append(view);
+  try{
+   view.dispatchEvent(new PointerEvent('pointerdown',{button:0,pointerId:22,clientX:100,clientY:650,bubbles:true}));
+   view.dispatchEvent(new PointerEvent('pointermove',{pointerId:22,clientX:100,clientY:220,bubbles:true}));
+   inGesture=true;view.dispatchEvent(new PointerEvent('pointerup',{pointerId:22,clientX:100,clientY:220,bubbles:true}));inGesture=false;
+   assert(plays===1&&playing,'Следующее видео не запущено непосредственно в свайпе');
+   const previewMedia=view.querySelector('.ivi-moment-screen__incoming .ivi-moment-screen__media');
+   assert(Math.abs(nextVideo.getBoundingClientRect().top-previewMedia.getBoundingClientRect().top)<1,'Видео находится за нижним краем следующего экрана');
+   const transition=view.querySelector('.ivi-moment-screen__page');
+   transition.dispatchEvent(new TransitionEvent('transitionend',{propertyName:'transform',bubbles:true}));await frame();
+   assert(view.getMomentIndex()===1,'Момент не переключился');
+   assert(view.querySelector('.ivi-moment-screen__media > video')===nextVideo,'Создан другой видеоплеер без разрешения на звук');
+   assert(plays===1&&pauses===1&&acquired===1&&playing,'Передача прервала воспроизведение или запросила звук повторно');
+  }finally{view.destroy();view.remove();}
+ }
+});
+await test('Moment: закрытие во время перехода останавливает подготовленное видео',async()=>{
+ const nextVideo=document.createElement('video');let playing=false,released=0;
+ nextVideo.pause=()=>{playing=false;};nextVideo.play=()=>{playing=true;return Promise.resolve();};
+ const view=createMomentScreen({moments:[{...titles.serial.moments[0],videoSrc:''},{...titles.serial.moments[1],preparedVideo:nextVideo}],autoplay:false,onReleaseVideo:v=>{if(v===nextVideo)released++;}});stage.append(view);
+ try{
+  view.dispatchEvent(new PointerEvent('pointerdown',{button:0,pointerId:23,clientX:100,clientY:650,bubbles:true}));
+  view.dispatchEvent(new PointerEvent('pointermove',{pointerId:23,clientX:100,clientY:220,bubbles:true}));
+  view.dispatchEvent(new PointerEvent('pointerup',{pointerId:23,clientX:100,clientY:220,bubbles:true}));
+  assert(playing,'Свайп не запустил видео');view.destroy();await frame();assert(!playing&&released===1,'Видео продолжает играть после закрытия');
+ }finally{view.remove();}
+});
+await test('Moment: свайп сохраняет видеоплеер с уже разрешённым звуком',async()=>{
+ let playing=false,plays=0,pauses=0,acquired=0,released=0;
+ const player=document.createElement('video'),unused=document.createElement('video');
+ Object.defineProperty(player,'paused',{get:()=>!playing});
+ player.play=()=>{plays++;assert(!player.muted,'Звук выключился');playing=true;return Promise.resolve();};
+ player.pause=()=>{pauses++;playing=false;};unused.play=()=>{throw Error('Использован новый плеер без разрешения на звук');};
+ const view=createMomentScreen({moments:[{...titles.serial.moments[0],preparedVideo:player},{...titles.serial.moments[1],preparedVideo:unused}],autoplay:false,onAcquireVideo:()=>acquired++,onReleaseVideo:()=>released++});stage.append(view);
+ try{
+  view.play();
+  view.dispatchEvent(new PointerEvent('pointerdown',{button:0,pointerId:24,clientX:100,clientY:650,bubbles:true}));
+  view.dispatchEvent(new PointerEvent('pointermove',{pointerId:24,clientX:100,clientY:220,bubbles:true}));
+  view.dispatchEvent(new PointerEvent('pointerup',{pointerId:24,clientX:100,clientY:220,bubbles:true}));const beforeHandoff=pauses;
+  view.querySelector('.ivi-moment-screen__page').dispatchEvent(new TransitionEvent('transitionend',{propertyName:'transform',bubbles:true}));await frame();
+  assert(view.querySelector('.ivi-moment-screen__media > video')===player,'Разрешённый плеер заменён');
+  assert(player.src===titles.serial.moments[1].videoSrc,'Источник не переключился');
+  assert(playing&&plays===2&&pauses===beforeHandoff&&acquired===1&&released===0,'Передача прервала звуковое воспроизведение');
+ }finally{view.destroy();view.remove();}
+ assert(released===1,'Плеер не освобождён при закрытии');
+});
+await test('Moment: touchend повторяет запуск со звуком при отказе pointerup',async()=>{
+ const player=document.createElement('video');let touch=false,playing=false,plays=0;
+ Object.defineProperty(player,'paused',{get:()=>!playing});player.pause=()=>{playing=false;};
+ player.play=()=>{plays++;assert(!player.muted,'Попытка запуска стала беззвучной');if(!touch)return Promise.reject(new DOMException('Needs touchend','NotAllowedError'));playing=true;return Promise.resolve();};
+ const view=createMomentScreen({moments:[{...titles.serial.moments[0],videoSrc:''},{...titles.serial.moments[1],preparedVideo:player}],autoplay:false});stage.append(view);
+ try{
+  view.dispatchEvent(new PointerEvent('pointerdown',{button:0,pointerId:25,clientX:100,clientY:650,bubbles:true}));
+  view.dispatchEvent(new PointerEvent('pointermove',{pointerId:25,clientX:100,clientY:220,bubbles:true}));
+  view.dispatchEvent(new PointerEvent('pointerup',{pointerId:25,clientX:100,clientY:220,bubbles:true}));await Promise.resolve();
+  touch=true;view.dispatchEvent(new Event('touchend',{bubbles:true}));touch=false;
+  view.querySelector('.ivi-moment-screen__page').dispatchEvent(new TransitionEvent('transitionend',{propertyName:'transform',bubbles:true}));await frame();
+  assert(plays===2&&playing&&!player.muted&&view.getMomentIndex()===1,'touchend не восстановил звуковой запуск');
+ }finally{view.destroy();view.remove();}
+});
 await test('Составные компоненты используют общие примитивы',()=>{
  const cover=createContentCardCover();assert(cover.querySelector('.ivi-title-block .ivi-tag'),'Title Block / Tag');assert(cover.querySelector('.ivi-content-cover__header .ivi-icon-button'),'Header / Icon Button');assert(cover.querySelectorAll('.ivi-buttons-block .ivi-button').length===5,'Buttons Block / Button');assert(createProgressBar().querySelector('.ivi-blob'),'Progress / Blob');assert(createSeasonTabs().querySelectorAll('.ivi-season').length===3,'Seasons / Season Tab');assert(createFriendRate().querySelector('.ivi-tag'),'Friend / Tag');assert(createPersonCard({variant:'Friend'}).querySelector('.ivi-tag'),'Person / Tag');cover.destroy();
 });

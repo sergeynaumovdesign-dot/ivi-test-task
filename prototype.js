@@ -261,6 +261,7 @@ function enableTrailerSwipe(trailerLayer,page,video){
   const target=complete?(up?-phone.clientHeight:phone.clientHeight):0;
   const duration=reduced.matches?0:(!up&&complete?160:momentSwipeDuration(target-currentGesture.offset,phone.clientHeight));
   const moment=currentGesture.moment;let finished=false,animations=[];
+  if(up&&complete)moment.view.play();
   const settle=()=>{
    if(finished)return;finished=true;animations.forEach(animation=>animation.cancel());
    if(up){
