@@ -179,6 +179,31 @@ await test('Moment: touchend повторяет запуск со звуком �
   assert(plays===2&&playing&&!player.muted&&view.getMomentIndex()===1,'touchend не восстановил звуковой запуск');
  }finally{view.destroy();view.remove();}
 });
+await test('Moment: открытие подготовленного ролика сбрасывает прежнюю позицию на ноль',()=>{
+ const player=document.createElement('video');let position=2.29,playedAt;
+ Object.defineProperties(player,{readyState:{get:()=>2},currentTime:{get:()=>position,set:value=>{position=value;}}});
+ player.pause=()=>{};player.play=()=>{playedAt=position;return Promise.resolve();};
+ const view=createMomentScreen({...titles.serial.moments[2],preparedVideo:player,autoplay:false});stage.append(view);
+ try{view.play();assert(playedAt===0,'Подготовленный ролик продолжился с прежнего времени');}
+ finally{view.destroy();view.remove();}
+});
+await test('Moment: плеер трейлера сохраняется между моментами и возвращается владельцу',async()=>{
+ for(const closeDuringSwipe of [false,true]){
+  const warm=document.createElement('video'),trailer=document.createElement('video');let playing=false,released=0,warmReleased=0;
+  warm.pause=()=>{};Object.defineProperty(trailer,'paused',{get:()=>!playing});
+  trailer.pause=()=>{playing=false;};trailer.play=()=>{assert(!trailer.muted,'Звук трейлера потерян');playing=true;return Promise.resolve();};
+  const view=createMomentScreen({moments:[{...titles.serial.moments[0],preparedVideo:warm},titles.serial.moments[1]],autoplay:false,onReleaseVideo:video=>{if(video===warm)warmReleased++;else throw Error('Внешний плеер передан в кэш моментов');}});stage.append(view);
+  try{
+   assert(view.useVideo(trailer,video=>{assert(video===trailer,'Возвращён другой плеер');released++;}), 'Плеер трейлера не принят');view.play();
+   assert(warmReleased===1&&playing&&view.querySelector('video')===trailer,'Передача не сохранила разрешённый плеер');
+   view.dispatchEvent(new PointerEvent('pointerdown',{button:0,pointerId:26,clientX:100,clientY:650,bubbles:true}));
+   view.dispatchEvent(new PointerEvent('pointermove',{pointerId:26,clientX:100,clientY:220,bubbles:true}));
+   view.dispatchEvent(new PointerEvent('pointerup',{pointerId:26,clientX:100,clientY:220,bubbles:true}));
+   if(!closeDuringSwipe){view.querySelector('.ivi-moment-screen__page').dispatchEvent(new TransitionEvent('transitionend',{propertyName:'transform',bubbles:true}));await frame();assert(playing&&view.querySelector('video')===trailer,'Свайп заменил плеер трейлера');}
+   view.destroy();assert(!playing&&released===1,'Внешний плеер не освобождён ровно один раз');
+  }finally{view.remove();}
+ }
+});
 await test('Составные компоненты используют общие примитивы',()=>{
  const cover=createContentCardCover();assert(cover.querySelector('.ivi-title-block .ivi-tag'),'Title Block / Tag');assert(cover.querySelector('.ivi-content-cover__header .ivi-icon-button'),'Header / Icon Button');assert(cover.querySelectorAll('.ivi-buttons-block .ivi-button').length===5,'Buttons Block / Button');assert(createProgressBar().querySelector('.ivi-blob'),'Progress / Blob');assert(createSeasonTabs().querySelectorAll('.ivi-season').length===3,'Seasons / Season Tab');assert(createFriendRate().querySelector('.ivi-tag'),'Friend / Tag');assert(createPersonCard({variant:'Friend'}).querySelector('.ivi-tag'),'Person / Tag');cover.destroy();
 });

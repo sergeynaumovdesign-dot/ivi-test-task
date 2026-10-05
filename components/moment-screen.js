@@ -116,6 +116,7 @@ export function createMomentScreen(options = {}) {
   let video = null;
   let videoListeners = null;
   let borrowedVideo = false;
+  let externalVideo = null;
   let swipePlayback = null;
   let rewindFrom = 'Default';
   function configureVideo(element, data) {
@@ -127,6 +128,12 @@ export function createMomentScreen(options = {}) {
     element.volume = 1;
     element.preload = 'auto';
     if (element.src !== data.videoSrc) element.src = data.videoSrc;
+  }
+  function releaseVideo(element) {
+    if (externalVideo?.video === element) {
+      const release = externalVideo.release; externalVideo = null;
+      release?.(element);
+    } else p.onReleaseVideo?.(element);
   }
   function startSwipePlayback(record) {
     record.video.play().catch(() => {
@@ -171,7 +178,7 @@ export function createMomentScreen(options = {}) {
     if (!swipePlayback) return;
     const record = swipePlayback; swipePlayback = null;
     record.video.pause();
-    if (record.borrowed) p.onReleaseVideo?.(record.video);
+    if (record.borrowed) releaseVideo(record.video);
     else record.video.remove();
     if (record.video === video) borrowedVideo = false;
   }
@@ -179,7 +186,7 @@ export function createMomentScreen(options = {}) {
     const startup = swipePlayback?.index === index ? swipePlayback : null;
     if (startup) swipePlayback = null;
     videoListeners?.abort();
-    if (borrowedVideo && video && video !== startup?.video) p.onReleaseVideo?.(video);
+    if (borrowedVideo && video && video !== startup?.video) releaseVideo(video);
     media.replaceChildren();
     video = null;
     borrowedVideo = false;
@@ -190,6 +197,7 @@ export function createMomentScreen(options = {}) {
         if (borrowedVideo) { p.onAcquireVideo?.(video); video.pause(); }
         // Choose audio mode before play(); never unmute in a frame callback.
         configureVideo(video, current);
+        if (video.readyState >= 1) video.currentTime = 0;
       }
       video.style.opacity = borrowedVideo && video.readyState >= 2 ? '1' : '0';
       videoListeners = new AbortController();
@@ -437,6 +445,17 @@ export function createMomentScreen(options = {}) {
   const initial = state; state = ''; setState(initial);
   root.setState = setState;
   root.play = startTicker;
+  root.useVideo = (element, release) => {
+    if (!element || !current.videoSrc) return false;
+    if (element === video) return true;
+    pauseTicker();
+    if (externalVideo) { releaseVideo(video); borrowedVideo = false; }
+    externalVideo = { video: element, release };
+    current = { ...current, preparedVideo: element };
+    value = 0; bottom.setProgress(0);
+    drawMedia();
+    return true;
+  };
   root.getState = () => state;
   root.getMomentIndex = () => index;
   root.getMoments = () => moments.map(moment => ({ ...moment }));
@@ -451,7 +470,7 @@ export function createMomentScreen(options = {}) {
     incoming?.setSize({width,height});
     if(widthChanged&&['Ended','Error'].includes(state)){const next=state;state='';setState(next);}
   };
-  root.destroy = () => { pauseTicker(); clearSwipePlayback(); videoListeners?.abort(); if(borrowedVideo&&video)p.onReleaseVideo?.(video); clearTimeout(settleTimer); cancelAnimationFrame(handoffFrame); settling = false; cancelSwipeHint(); clearIncoming(); document.removeEventListener('visibilitychange', visibility); };
+  root.destroy = () => { pauseTicker(); clearSwipePlayback(); videoListeners?.abort(); if(borrowedVideo&&video)releaseVideo(video); clearTimeout(settleTimer); cancelAnimationFrame(handoffFrame); settling = false; cancelSwipeHint(); clearIncoming(); document.removeEventListener('visibilitychange', visibility); };
   if (p.autoplay && initial === 'Default') requestAnimationFrame(() => { if (root.isConnected) startTicker(); });
   return root;
 }

@@ -9,7 +9,8 @@
 #phone-top-fade span:nth-child(4){backdrop-filter:blur(1px);-webkit-backdrop-filter:blur(1px);mask-image:linear-gradient(to bottom,transparent 66%,#000 76%,transparent 100%);-webkit-mask-image:linear-gradient(to bottom,transparent 66%,#000 76%,transparent 100%)}
 .phone-layer__trailer>.ivi-status-bar{position:absolute;inset:0 0 auto;z-index:10;pointer-events:none}
 .player--trailer{touch-action:none;overflow:hidden}
-.player--trailer video,.player--trailer>img{width:100%;max-height:100%;object-fit:contain}
+.player--trailer video,.player--trailer>img,.player--trailer>canvas{width:100%;max-height:100%;object-fit:contain}
+.player__still{aspect-ratio:16/9}
 .player__swipe-hint{position:absolute;left:16px;right:16px;bottom:40px;height:98px;z-index:2;text-align:center;pointer-events:none;transition:opacity 220ms ease}
 .player__swipe-hint.is-hidden{opacity:0}
 .phone .phone-layer__moment-close{top:max(0px,calc(var(--phone-status-height) - 6px));left:10px;width:44px;height:44px}

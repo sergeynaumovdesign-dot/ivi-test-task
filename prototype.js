@@ -201,9 +201,9 @@ function openVideo(data={},seconds=0,{deferPlay=false,animateEntry=true}={}){
   layer.pauseMedia=()=>page.setPlaying(false);layer.resumeMedia=()=>page.setPlaying(true);
   return {layer,page,video:page.querySelector('video')};
  }
- const trailer=!data.full;const page=node('div',`player${trailer?' player--trailer':''}`);let video;
+ const trailer=!data.full;const page=node('div',`player${trailer?' player--trailer':''}`);let video,borrowed=false,destroyed=false,mediaEvents=new AbortController();
  const src=data.videoSrc||media[state.key].trailer||current().cover.fullVideoSrc||current().cover.videoSrc;
- if(src){video=node('video');video.src=src;video.poster=data.imageSrc||current().cover.trailerImage;video.playsInline=true;video.muted=silentPreview;video.defaultMuted=silentPreview;video.controls=!trailer;video.addEventListener('loadedmetadata',()=>{video.currentTime=Math.min(seconds,video.duration||seconds);if(!deferPlay)video.play().catch(()=>{});},{once:true});page.append(video);}
+ if(src){video=node('video');video.poster=data.imageSrc||current().cover.trailerImage;video.playsInline=true;video.muted=silentPreview;video.defaultMuted=silentPreview;video.controls=!trailer;video.src=src;video.addEventListener('loadedmetadata',()=>{video.currentTime=Math.min(seconds,video.duration||seconds);if(!deferPlay&&!borrowed)video.play().catch(()=>{});},{once:true,signal:mediaEvents.signal});page.append(video);}
  else{const poster=node('img');poster.src=data.imageSrc||current().cover.trailerImage;poster.alt='';page.append(poster);}
  let hintTimer,hint;
  if(trailer){
@@ -213,9 +213,27 @@ function openVideo(data={},seconds=0,{deferPlay=false,animateEntry=true}={}){
    hint.append(gesture,node('span','player__swipe-label',`Проведи вверх, чтобы посмотреть короткие фрагменты из ${current().variant==='Film'?'фильма':'сериала'}`));page.append(hint);
   }
  }
- page.destroy=()=>{clearTimeout(hintTimer);video?.pause();video?.removeAttribute('src');video?.load();};
+ page.destroy=()=>{destroyed=true;mediaEvents.abort();clearTimeout(hintTimer);video?.pause();video?.removeAttribute('src');video?.load();};
  const layer=openLayer(page,null,{trailer,video:true,animateEntry});
- layer.pauseMedia=()=>video?.pause();
+ layer.pauseMedia=()=>{if(!borrowed)video?.pause();};
+ if(video&&!deferPlay)video.play().catch(()=>{});
+ layer.lendVideo=()=>{
+  if(!video||borrowed||destroyed)return null;
+  const position=video.currentTime,poster=video.poster;
+  const still=node('canvas','player__still');still.setAttribute('aria-hidden','true');
+  let snapshot=still;
+  try{if(!video.videoWidth)throw Error('No frame');still.width=video.videoWidth;still.height=video.videoHeight;still.getContext('2d').drawImage(video,0,0);}
+  catch{snapshot=node('img','player__still');snapshot.src=poster;snapshot.alt='';}
+  page.prepend(snapshot);borrowed=true;mediaEvents.abort();
+  return{video,release:()=>{
+   if(!borrowed)return;borrowed=false;video.pause();
+   if(destroyed)return;
+   video.className='';video.style.opacity='';video.poster=poster;video.muted=silentPreview;video.defaultMuted=silentPreview;video.controls=!trailer;
+   mediaEvents=new AbortController();
+   video.addEventListener('loadedmetadata',()=>{video.currentTime=Math.min(position,video.duration||position);},{once:true,signal:mediaEvents.signal});
+   video.src=src;page.prepend(video);snapshot.remove();
+  }};
+ };
  if(trailer){
   layer.showSwipeHint=()=>{
    if(!hint||swipeHintSeen)return;
@@ -261,7 +279,7 @@ function enableTrailerSwipe(trailerLayer,page,video){
   const target=complete?(up?-phone.clientHeight:phone.clientHeight):0;
   const duration=reduced.matches?0:(!up&&complete?160:momentSwipeDuration(target-currentGesture.offset,phone.clientHeight));
   const moment=currentGesture.moment;let finished=false,animations=[];
-  if(up&&complete)moment.view.play();
+  if(up&&complete){const loan=trailerLayer.lendVideo?.();if(loan&&!moment.view.useVideo(loan.video,loan.release))loan.release();moment.view.play();}
   const settle=()=>{
    if(finished)return;finished=true;animations.forEach(animation=>animation.cancel());
    if(up){
