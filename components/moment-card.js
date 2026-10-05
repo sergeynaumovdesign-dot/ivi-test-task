@@ -39,7 +39,10 @@ export function createMomentCard(options = {}) {
   const title = document.createElement('span');
   title.className = 'ivi-moment-card__title ivi-text-regular-text-small';
   title.textContent = props.title;
-  card.append(photo);
+  const visual = document.createElement('span');
+  visual.className = 'ivi-moment-card__visual';
+  visual.append(photo);
+  card.append(visual);
 
   let video, observer;
   let fullyVisible = false, opened = false;
@@ -47,15 +50,16 @@ export function createMomentCard(options = {}) {
   if (videoEnabled) {
     video = document.createElement('video');
     video.className = 'ivi-moment-card__video';
-    video.src = props.videoSrc;
     video.muted = true;
+    video.defaultMuted = true;
     video.loop = true;
     video.playsInline = true;
     video.preload = 'metadata';
+    video.src = props.videoSrc;
     video.addEventListener('playing', () => video.classList.add('is-playing'));
     video.addEventListener('pause', () => video.classList.remove('is-playing'));
     video.addEventListener('error', () => { video.classList.remove('is-playing'); video.pause(); });
-    card.append(video);
+    visual.append(video);
     const onVisibility = refreshPreview;
     observer = new IntersectionObserver(entries => {
       fullyVisible = entries[0]?.intersectionRatio >= .999;

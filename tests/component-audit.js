@@ -3,6 +3,7 @@ import { createSeries } from '../components/series.js';
 import { createFeedbackBlock } from '../components/feedback-block.js';
 import { createMomentScreen } from '../components/moment-screen.js';
 import { createContentCardCover } from '../components/content-card-cover.js';
+import { createContentPageHeader } from '../components/content-page-header.js';
 import { createProgressBar } from '../components/progress-bar.js';
 import { createSeasonTabs } from '../components/season-tabs.js';
 import { createTabsBlock } from '../components/tabs-block.js';
@@ -19,6 +20,23 @@ const results=document.querySelector('#results'),fixtures=document.querySelector
 const frame=()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)));
 const assert=(condition,message)=>{if(!condition)throw Error(message);};
 async function test(name,fn){const row=document.createElement('li');results.append(row);try{await fn();row.textContent='✓ '+name;row.className='pass';}catch(error){row.textContent='✗ '+name+': '+error.message;row.className='fail';}}
+await test('Превью трейлера: малый буфер не блокирует запуск; открытый плеер останавливает превью',()=>{
+ const OriginalObserver=window.IntersectionObserver;
+ let header;
+ try{
+  window.IntersectionObserver=class{constructor(callback){this.callback=callback;}observe(){this.callback([{intersectionRatio:1}]);}disconnect(){}};
+  header=createContentPageHeader({...titles.serial.cover});
+  const video=header.querySelector('video');
+  let plays=0;video.play=()=>{plays++;return Promise.resolve();};video.pause=()=>{};
+  Object.defineProperties(video,{duration:{get:()=>100},buffered:{get:()=>({length:1,end:()=>1})}});
+  video.dispatchEvent(new Event('canplay'));
+  assert(plays===1,'Превью должно запускаться при готовом первом кадре и буфере 1%');
+  assert(video.defaultMuted&&video.playsInline&&video.autoplay,'Начальный режим Safari: muted, playsinline, autoplay');
+  header.pausePreview();video.dispatchEvent(new Event('canplay'));
+  assert(plays===1,'Загрузка не должна возобновлять превью под открытым плеером');
+  header.resumePreview();assert(plays===2,'Возврат возобновляет превью');
+ }finally{header?.destroy();window.IntersectionObserver=OriginalObserver;}
+});
 for(const [key,item] of Object.entries(extraComponents)){
  await test(`${item.label}: все варианты и изображения`,async()=>{
   const box=document.createElement('section');box.className='fixture';box.id=key;const title=document.createElement('h2');title.textContent=item.label;box.append(title);

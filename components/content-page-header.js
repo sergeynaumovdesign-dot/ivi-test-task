@@ -18,13 +18,14 @@ export function createContentPageHeader(options={}) {
   let observer;
   let visible = false;
   let muted = true;
-  let previewReady = false;
+  let suspended = false;
   const mute = createIconButton({icon:'mute',label:'Включить звук',size:16,onPress:()=>{
     if(!video)return;muted=!muted;video.muted=muted;
     mute.setIcon(muted?'mute':'unmute',muted?'Включить звук':'Выключить звук');
     mute.setAttribute('aria-pressed',String(!muted));p.onMuteChange?.(muted);
   }});mute.classList.add('ivi-content-cover__mute');mute.setAttribute('aria-pressed','false');
   function stopPreview() { video?.pause(); }
+  function suspendPreview() { suspended = true; stopPreview(); }
   function fallbackToPoster() {
     stopPreview();
     observer?.disconnect();
@@ -40,39 +41,27 @@ export function createContentPageHeader(options={}) {
     const hit = node('button', 'ivi-content-cover__media-hit');
     hit.type = 'button';
     hit.setAttribute('aria-label', 'Открыть трейлер');
-    hit.addEventListener('click', () => { stopPreview(); p.onOpenTrailer?.({ videoSrc: p.fullVideoSrc || p.videoSrc, imageSrc: image.src, title: p.title, card: header }); });
+    hit.addEventListener('click', () => { suspendPreview(); p.onOpenTrailer?.({ videoSrc: p.fullVideoSrc || p.videoSrc, imageSrc: image.src, title: p.title, card: header }); });
     header.append(hit);
     header.append(mute);
     if (p.videoSrc) {
       video = node('video', 'ivi-content-cover__video');
-      video.src = p.videoSrc;
       video.poster = p.trailerImage;
-      video.style.opacity = '0';
       video.muted = true;
+      video.defaultMuted = true;
+      video.autoplay = true;
       video.loop = true;
       video.playsInline = true;
       video.preload = 'auto';
-      const revealVideo = () => {
-        if (!video || previewReady) return;
-        let bufferedEnd = 0;
-        for (let i = 0; i < video.buffered.length; i++) bufferedEnd = Math.max(bufferedEnd, video.buffered.end(i));
-        if (Number.isFinite(video.duration) && video.duration > 0) {
-          if (bufferedEnd / video.duration < .25) return;
-        } else if (video.readyState < HTMLMediaElement.HAVE_FUTURE_DATA) return;
-        previewReady = true;
-        if (visible && !document.hidden) video.play().catch(() => {});
-        const showFirstFrame = () => { if (video) video.style.opacity = '1'; };
-        if (video.requestVideoFrameCallback) video.requestVideoFrameCallback(showFirstFrame);
-        else video.addEventListener('playing', showFirstFrame, { once: true });
-      };
-      video.addEventListener('progress', revealVideo);
-      video.addEventListener('loadedmetadata', revealVideo);
-      video.addEventListener('canplay', revealVideo);
+      video.src = p.videoSrc;
+      // Start muted playback without waiting for a percentage of the whole file.
+      // Safari may limit preloading until playback has actually begun.
+      video.addEventListener('canplay', () => { if (visible && !suspended && !document.hidden) video?.play().catch(() => {}); });
       video.addEventListener('error', fallbackToPoster, { once: true });
       header.insertBefore(video, shade);
       observer = new IntersectionObserver(entries => {
         visible = entries[0].intersectionRatio >= .95;
-        if (visible && previewReady && !document.hidden) video?.play().catch(() => {});
+        if (visible && !suspended && !document.hidden) video?.play().catch(() => {});
         else stopPreview();
       }, { threshold: [.95] });
       observer.observe(header);
@@ -80,9 +69,9 @@ export function createContentPageHeader(options={}) {
     }
   }
   header.style.width=`${p.width}px`;header.dataset.media=p.mediaType;
-  header.pausePreview=stopPreview;
-  header.resumePreview=()=>{if(visible&&previewReady&&!document.hidden)video?.play().catch(()=>{});};
-  function visibilityChange(){if(document.hidden)stopPreview();else if(visible&&previewReady&&header.isConnected)video?.play().catch(()=>{});}
+  header.pausePreview=suspendPreview;
+  header.resumePreview=()=>{suspended=false;if(visible&&!document.hidden)video?.play().catch(()=>{});};
+  function visibilityChange(){if(document.hidden)stopPreview();else if(visible&&!suspended&&header.isConnected)video?.play().catch(()=>{});}
   header.destroy=()=>{observer?.disconnect();document.removeEventListener('visibilitychange',visibilityChange);stopPreview();};
   return header;
 }

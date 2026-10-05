@@ -46,12 +46,12 @@ function rememberSwipeHint(){swipeHintSeen=true;try{localStorage.setItem(swipeHi
 const momentSwipeHintKey=prototypeParams.get('embed')==='1'?'ivi-case-moment-swipe-hint-seen':'ivi-prototype-moment-swipe-hint-seen';
 let momentSwipeHintSeen=(()=>{try{return localStorage.getItem(momentSwipeHintKey)==='1';}catch{return false;}})();
 function showMomentSwipeHint(layer,view){
- if(momentSwipeHintSeen||!layer.isConnected||stack.lastElementChild!==layer||!view.playSwipeHint())return;
+ if(momentSwipeHintSeen||swipeHintSeen||!layer.isConnected||stack.lastElementChild!==layer||!view.playSwipeHint())return;
  momentSwipeHintSeen=true;
  try{localStorage.setItem(momentSwipeHintKey,'1');}catch{}
 }
 function scheduleMomentSwipeHint(layer,view){
- if(momentSwipeHintSeen)return;
+ if(momentSwipeHintSeen||swipeHintSeen)return;
  const openingIndex=view.getMomentIndex();
  clearTimeout(layer.momentSwipeHintTimer);
  layer.momentSwipeHintTimer=setTimeout(()=>{
@@ -67,15 +67,17 @@ function resetSwipeHints(){
 function toast(message){const el=document.querySelector('.phone-toast');clearTimeout(toastTimer);el.textContent=message;el.hidden=false;toastTimer=setTimeout(()=>el.hidden=true,2200);}
 function current(){return titles[state.key];}
 function editableCover(){return {...current().cover,...state.cover[state.key]};}
-function updateTopFade(){const fade=document.querySelector('#phone-top-fade');const tabs=screen?.querySelector('.ivi-tabs-block');const pinned=Boolean(tabs&&host.scrollTop>=tabPin(tabs)-1);const seasonTabs=pinned&&state.activeTab===1;fade.style.height=pinned?(seasonTabs?'232px':'180px'):'100px';fade.classList.toggle('is-scrolled',host.scrollTop>0);fade.classList.toggle('is-season-tabs',seasonTabs);}
-function tabPin(tabs){return Number(tabs.dataset.pin??Math.max(0,tabs.offsetTop-89));}
+function statusSpace(){return parseFloat(getComputedStyle(phone).getPropertyValue('--phone-status-height'))||0;}
+function navigationBottom(){return statusSpace()+45;}
+function updateTopFade(){const fade=document.querySelector('#phone-top-fade');const tabs=screen?.querySelector('.ivi-tabs-block');const pinned=Boolean(tabs&&host.scrollTop>=tabPin(tabs)-1);const seasonTabs=pinned&&state.activeTab===1;fade.style.height=`${(pinned?(seasonTabs?232:180):100)-44+statusSpace()}px`;fade.classList.toggle('is-scrolled',host.scrollTop>0);fade.classList.toggle('is-season-tabs',seasonTabs);}
+function tabPin(tabs){return Number(tabs.dataset.pin??Math.max(0,tabs.offsetTop-navigationBottom()));}
 function onTabChange(index,tabs){const positions=state.tabScroll[state.key];const pin=tabPin(tabs);positions[state.activeTab]=Math.max(pin,host.scrollTop);state.activeTab=index;requestAnimationFrame(()=>{host.scrollTo({top:Math.max(pin,positions[index]??pin),behavior:'smooth'});updateTopFade();});}
 function scrollToFriendRatings(section){
  if(!section)return;
  const tabs=screen.querySelector('.ivi-tabs-block');
  if(state.activeTab!==0&&tabs){state.tabScroll[state.key][state.activeTab]=Math.max(tabPin(tabs),host.scrollTop);state.activeTab=0;}
  requestAnimationFrame(()=>{
-  const offset=tabs?137:89;
+  const offset=navigationBottom()+(tabs?48:0);
   const top=host.scrollTop+section.getBoundingClientRect().top-host.getBoundingClientRect().top-offset;
   host.scrollTo({top:Math.max(0,top),behavior:reduced.matches?'instant':'smooth'});
  });
@@ -353,7 +355,7 @@ function render({keepLayers=false}={}){
  const moments=title.moments.map((moment,index)=>({...moment,videoSrc:media[state.key].moments[index]||moment.videoSrc||''}));
  screen=createContentDetailScreen({...title,moments,width:phone.clientWidth,activeTab:state.activeTab,activeSeason:state.activeSeason[state.key],onSeasonChange:season=>state.activeSeason[state.key]=season,cover,blocks:state.blocks,feedbackSummary:{...title.summary,personalized:state.personalized},rating:{rating:cover.rating,count:cover.ratingCount,ownRating:ratings[state.key]},onTabChange,onTabReselect,onOpenFriendRatings:scrollToFriendRatings,onBack:()=>location.href='index.html',onOpenTrailer:openVideo,onOpenVideo:openVideo,onOpenMoment:openMoment,onWatch:()=>openVideo({title:cover.title,full:true}),onOpenSeries:data=>openVideo({...data,full:true}),onRate:rate,onSaveChange:value=>{saved[state.key]=value;toast(value?'Добавлено в избранное':'Удалено из избранного');},onDownload:()=>toast('Видео недоступно для скачивания в прототипе'),onShare:()=>{navigator.clipboard?.writeText(location.href).then(()=>toast('Ссылка скопирована')).catch(()=>toast('Не удалось скопировать ссылку'));},onOpenFeedback:review=>textScreen(review.author||'Отзыв',review.text),onOpenPerson:person=>textScreen(person.name,person.subtitle||''),onOpenCompilation:item=>textScreen(item.title,'Подборка'),onOpenRecommendation:()=>toast('Карточка этого фильма пока не добавлена в прототип')});
  screen.querySelector(':scope > .ivi-status-bar')?.replaceWith(node('div','phone-status-space'));
- host.replaceChildren(screen);host.scrollTop=0;const tabs=screen.querySelector('.ivi-tabs-block');if(tabs)tabs.dataset.pin=String(Math.max(0,tabs.offsetTop-89));host.scrollTop=scroll;updateTopFade();
+ host.replaceChildren(screen);host.scrollTop=0;const tabs=screen.querySelector('.ivi-tabs-block');if(tabs)tabs.dataset.pin=String(Math.max(0,tabs.offsetTop-navigationBottom()));host.scrollTop=scroll;updateTopFade();
  prepareMoment(state.key,0);
  if(title.moments.length>1)setTimeout(()=>prepareMoment(state.key,1),300);
  if(title.moments.length>2)setTimeout(()=>prepareMoment(state.key,2),700);
