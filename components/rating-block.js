@@ -44,7 +44,7 @@ export function createRatingBlock(options = {}) {
     info.append(details);
   } else info.append(node('strong', 'ivi-text-bold-h3', 'Нет оценок'));
   const makeAction = () => {
-    const button = createButton({ type: 'Secondary', size: 'Small', content: 'Text', label: p.ownRating ? 'Изменить' : 'Оценить', caption: false, onPress: () => p.onRate?.() });
+    const button = createButton({ type: 'Secondary', size: 'Small', content: 'Text', label: 'Оценить', caption: false, onPress: () => p.onRate?.() });
     button.classList.add('ivi-rating-block__action');
     return button;
   };
