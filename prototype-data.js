@@ -14,7 +14,7 @@ const serial = {
   moments:[
     {title:'Уилл проживает убийство от лица преступника',imageSrc:video('hannibal-moment-1-browser-poster.jpg'),videoSrc:video('hannibal-moment-1-browser.mp4'),previewVideoSrc:video('hannibal-moment-1-browser-preview.mp4'),preview:'Video',duration:221.054,episode:'Сезон 1 серия 1',continuationSeconds:251},
     {title:'Уилл уверен, что Ганнибал ему неинтересен',imageSrc:video('hannibal-moment-2-browser-poster.jpg'),videoSrc:video('hannibal-moment-2-browser.mp4'),previewVideoSrc:video('hannibal-moment-2-browser-preview.mp4'),preview:'Video',duration:49.049,episode:'Сезон 1 серия 1',continuationSeconds:320},
-    {title:'Уилл уверен, что Ганнибал ему неинтересен (9:16 AI)',imageSrc:video('hannibal-moment-3-browser-poster.jpg'),videoSrc:video('hannibal-moment-3-browser-v2.mp4'),previewVideoSrc:video('hannibal-moment-3-browser-preview.mp4'),preview:'Video',duration:15.667,episode:'Сезон 1 серия 1',continuationSeconds:338},
+    {title:'Уилл уверен, что Ганнибал ему неинтересен (9:16 AI)',imageSrc:video('hannibal-moment-3-browser-poster.jpg'),videoSrc:video('hannibal-moment-3-browser-v2.mp4'),previewVideoSrc:video('hannibal-moment-3-browser-preview-v2.mp4'),preview:'Video',duration:15.667,episode:'Сезон 1 серия 1',continuationSeconds:338},
   ],
   friends:[{name:'Саня',score:10,imageSrc:image('42d6b.png')},{name:'Наташа',score:7,imageSrc:image('50a52.png')}],
   people:people([['Мадс Миккельсен','Ганнибал Лектор'],['Хью Дэнси','Уилл Грэхэм'],['Каролина Давернас','Доктор Алана Блум'],['Гильермо Наварро','Режиссёр'],['Майкл Раймер','Режиссёр']],['08bd1.png','041e9.png','98121.png','0f5d7.png','55e04.png']),
