@@ -14,7 +14,6 @@ export const momentScreenDefaults = {
   contentTitle: 'Ганнибал',
   contentType: 'Serial',
   episode: 'Сезон 1 серия 1',
-  continuationTime: '04:11',
   continuationSeconds: 251,
   imageSrc: asset('raw-1.png'),
   posterSrc: asset('raw-3.png'),
@@ -127,21 +126,22 @@ export function createMomentScreen(options = {}) {
     if (current.videoSrc) {
       borrowedVideo = Boolean(current.preparedVideo);
       video = current.preparedVideo || node('video', 'ivi-moment-screen__visual');
-      if (borrowedVideo) p.onAcquireVideo?.(video);
+      if (borrowedVideo) { p.onAcquireVideo?.(video); video.pause(); }
       video.className = 'ivi-moment-screen__visual';
-      if (video.src !== current.videoSrc) video.src = current.videoSrc;
       video.poster = current.imageSrc;
       video.playsInline = true;
-      // Keep the still frame visible and audio silent until a decoded frame is painted.
-      video.muted = true;
+      // Choose audio mode before play(), while the opening tap still authorizes it.
+      // Unmuting in a frame callback can make Safari pause the video.
+      video.muted = Boolean(p.muted);
       video.defaultMuted = Boolean(p.muted);
       video.volume = 1;
       video.preload = 'auto';
+      if (video.src !== current.videoSrc) video.src = current.videoSrc;
       video.style.opacity = borrowedVideo && video.readyState >= 2 ? '1' : '0';
       videoListeners = new AbortController();
       const signal = videoListeners.signal;
       const activeVideo = video;
-      const revealFrame = () => { if (video === activeVideo) { activeVideo.style.opacity = '1'; activeVideo.muted = Boolean(p.muted); } };
+      const revealFrame = () => { if (!signal.aborted && video === activeVideo) activeVideo.style.opacity = '1'; };
       if (video.requestVideoFrameCallback) video.requestVideoFrameCallback(revealFrame);
       else video.addEventListener('playing', revealFrame, { once: true, signal });
       const poster = node('img', 'ivi-moment-screen__visual ivi-moment-screen__poster');
@@ -172,7 +172,22 @@ export function createMomentScreen(options = {}) {
   function pauseTicker() { playbackRequest++; if (timer) clearInterval(timer); timer = null; video?.pause(); }
   function startTicker() {
     if (state !== 'Default') return;
-    if (video) { const request=++playbackRequest; video.play().catch(() => { if (request===playbackRequest && ['Default','Loading'].includes(state)) setState('Paused'); }); return; }
+    if (video) {
+      if (!video.paused) return;
+      const activeVideo = video, request = ++playbackRequest;
+      const isCurrent = () => video === activeVideo && request === playbackRequest && ['Default', 'Loading'].includes(state);
+      const pauseOnFailure = () => { if (isCurrent()) setState('Paused'); };
+      activeVideo.play().catch(error => {
+        if (!isCurrent()) return;
+        if (error.name === 'NotAllowedError' && !activeVideo.muted) {
+          // A swipe may finish after Safari's user activation has expired.
+          // Continue silently rather than requiring a pause/resume to start.
+          activeVideo.muted = true;
+          activeVideo.play().catch(pauseOnFailure);
+        } else pauseOnFailure();
+      });
+      return;
+    }
     if (!p.demoPlayback || timer) return;
     timer = setInterval(() => {
       if (!root.isConnected) { pauseTicker(); return; }
@@ -195,8 +210,10 @@ export function createMomentScreen(options = {}) {
     if (next === 'Loading') center.append(node('span', 'ivi-moment-screen__spinner'));
     if (next === 'Ended') {
       value = 1; bottom.setProgress(1);
+      const seconds = Math.max(0, Math.floor(Number(current.continuationSeconds) || 0));
+      const continuationTime = `${String(Math.floor(seconds / 60)).padStart(2, '0')}:${String(seconds % 60).padStart(2, '0')}`;
       const beginning = createButton({ type: 'Primary', size: 'Big', content: 'Text', width: p.width - 24, label: `Смотреть ${current.contentType === 'Film' || current.contentType === 'Movie' ? 'фильм' : 'сериал'} с начала`, caption: false, onPress: () => { pauseTicker(); p.onWatchFromStart?.({ ...current, seconds: 0 }); } });
-      const more = createButton({ type: 'Transparent', size: 'Big', content: 'Text', width: p.width - 24, label: 'Смотреть продолжение', caption: true, captionText: `${current.episode} | ${current.continuationTime}`, onPress: () => { pauseTicker(); p.onContinue?.({ ...current, seconds: current.continuationSeconds }); } });
+      const more = createButton({ type: 'Transparent', size: 'Big', content: 'Text', width: p.width - 24, label: 'Смотреть продолжение', caption: true, captionText: `${current.episode} | ${continuationTime}`, onPress: () => { pauseTicker(); p.onContinue?.({ ...current, seconds }); } });
       const repeat = createButton({ type: 'Tertiary', size: 'Big', content: 'Text', label: 'Повторить момент', caption: false, width: p.width - 24, onPress: () => { value = 0; bottom.setProgress(0); if (video) video.currentTime = 0; setState('Default'); } });
       repeat.classList.add('ivi-moment-screen__repeat');
       center.append(beginning, more, repeat);

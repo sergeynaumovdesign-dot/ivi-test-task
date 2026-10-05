@@ -21,7 +21,7 @@ function prepareMoment(key,index){
  const previous=warmVideos[key][index];
  if(previous?.src===src)return previous;
  if(previous){previous.video.pause();previous.video.removeAttribute('src');previous.video.load();previous.video.remove();}
- const video=document.createElement('video');video.src=src;video.preload='auto';video.playsInline=true;video.muted=true;video.defaultMuted=true;video.volume=1;warmDock.append(video);
+ const video=document.createElement('video');video.preload='auto';video.playsInline=true;video.muted=true;video.defaultMuted=true;video.volume=1;video.src=src;warmDock.append(video);
  const record={src,video,borrowed:false,ready:false};warmVideos[key][index]=record;
  const prime=()=>{
   if(record.borrowed||warmVideos[key][index]!==record)return;

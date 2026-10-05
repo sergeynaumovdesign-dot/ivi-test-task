@@ -76,6 +76,41 @@ await test('Moment: реакции сохраняются при переклю�
 await test('Moment: Ended = 100%; статичное превью не движется',async()=>{
  const c=createMomentScreen({state:'Ended',autoplay:false});stage.append(c);assert(c.querySelector('[role="slider"]').getAttribute('aria-valuenow')==='100','Не конец');c.setState('Default');const before=c.querySelector('[role="slider"]').getAttribute('aria-valuenow');await new Promise(r=>setTimeout(r,250));assert(before===c.querySelector('[role="slider"]').getAttribute('aria-valuenow'),'Фальшивое воспроизведение');c.destroy();c.remove();
 });
+await test('Moment: первый кадр не переключает звук после запуска',async()=>{
+ const video=document.createElement('video');let reveal,playing=false,muted=true;const audioChanges=[];
+ Object.defineProperty(video,'muted',{get:()=>muted,set:value=>{muted=value;audioChanges.push({value,playing});}});
+ Object.defineProperty(video,'paused',{get:()=>!playing});
+ video.requestVideoFrameCallback=callback=>{reveal=callback;};
+ video.play=()=>{assert(!video.muted,'Открытие по нажатию должно сразу запрашивать звук');playing=true;return Promise.resolve();};
+ video.pause=()=>{playing=false;};
+ const view=createMomentScreen({videoSrc:titles.serial.moments[0].videoSrc,preparedVideo:video,autoplay:false,muted:false});stage.append(view);
+ try{view.play();await Promise.resolve();reveal();assert(!audioChanges.some(change=>change.playing),'Звук изменился из асинхронного показа кадра');assert(video.style.opacity==='1','Кадр не появился');}
+ finally{view.destroy();view.remove();}
+});
+await test('Moment: запрет звукового автозапуска запускает видео без звука',async()=>{
+ const video=document.createElement('video');let plays=0,playing=false;
+ Object.defineProperty(video,'paused',{get:()=>!playing});video.pause=()=>{playing=false;};
+ video.play=()=>{plays++;if(!video.muted)return Promise.reject(new DOMException('Autoplay denied','NotAllowedError'));playing=true;video.dispatchEvent(new Event('playing'));return Promise.resolve();};
+ const view=createMomentScreen({videoSrc:titles.serial.moments[0].videoSrc,preparedVideo:video,autoplay:false,muted:false});stage.append(view);
+ try{view.play();video.dispatchEvent(new Event('waiting'));await Promise.resolve();await Promise.resolve();assert(plays===2&&playing&&video.muted,'Видео не запущено после отказа Safari');assert(view.getState()==='Default','Экран остался в состоянии загрузки');}
+ finally{view.destroy();view.remove();}
+});
+await test('Moment: отложенный отказ не возобновляет видео после паузы или закрытия',async()=>{
+ for(const close of [false,true]){
+  const video=document.createElement('video');let rejectPlay,plays=0;
+  video.pause=()=>{};video.play=()=>{plays++;return new Promise((resolve,reject)=>{rejectPlay=reject;});};
+  const view=createMomentScreen({videoSrc:titles.serial.moments[0].videoSrc,preparedVideo:video,autoplay:false});stage.append(view);
+  try{view.play();if(close)view.destroy();else view.setState('Paused');rejectPlay(new DOMException('Autoplay denied','NotAllowedError'));await Promise.resolve();await Promise.resolve();assert(plays===1,'Отложенный отказ повторно запустил остановленное видео');if(!close)assert(view.getState()==='Paused','Пользовательская пауза сброшена');}
+  finally{view.destroy();view.remove();}
+ }
+});
+await test('Moment: повторный отказ автозапуска не вызывает бесконечные попытки',async()=>{
+ const video=document.createElement('video');let plays=0;
+ video.pause=()=>{};video.play=()=>{plays++;return Promise.reject(new DOMException('Autoplay denied','NotAllowedError'));};
+ const view=createMomentScreen({videoSrc:titles.serial.moments[0].videoSrc,preparedVideo:video,autoplay:false});stage.append(view);
+ try{view.play();await Promise.resolve();await Promise.resolve();await Promise.resolve();assert(plays===2&&view.getState()==='Paused','Отказ должен остановить попытки и отобразить паузу');}
+ finally{view.destroy();view.remove();}
+});
 await test('Составные компоненты используют общие примитивы',()=>{
  const cover=createContentCardCover();assert(cover.querySelector('.ivi-title-block .ivi-tag'),'Title Block / Tag');assert(cover.querySelector('.ivi-content-cover__header .ivi-icon-button'),'Header / Icon Button');assert(cover.querySelectorAll('.ivi-buttons-block .ivi-button').length===5,'Buttons Block / Button');assert(createProgressBar().querySelector('.ivi-blob'),'Progress / Blob');assert(createSeasonTabs().querySelectorAll('.ivi-season').length===3,'Seasons / Season Tab');assert(createFriendRate().querySelector('.ivi-tag'),'Friend / Tag');assert(createPersonCard({variant:'Friend'}).querySelector('.ivi-tag'),'Person / Tag');cover.destroy();
 });
@@ -139,6 +174,25 @@ await test('Момент: перемотка в конец и продолжен
  assert(moment.getState()==='Ended','Перемотка в конец не завершила момент');
  moment.querySelector('.ivi-moment-screen__center button[aria-label="Смотреть продолжение"]').click();
  assert(continuation?.seconds===251&&continuation.episode==='Сезон 1 серия 1','Позиция или серия потеряна');moment.destroy();moment.remove();
+});
+await test('Моменты: время в кнопке совпадает с позицией продолжения после переключения',()=>{
+ for(const title of Object.values(titles)){
+  let continuation;
+  const moments=title.moments.map(moment=>({...moment,videoSrc:''}));
+  const view=createMomentScreen({moments,state:'Ended',autoplay:false,onContinue:data=>continuation=data});stage.append(view);
+  moments.forEach((moment,index)=>{
+   if(index){view.switchMoment(index);view.setState('Ended');}
+   const button=view.querySelector('button[aria-label="Смотреть продолжение"]');
+   const caption=button.querySelector('.ivi-button__caption').textContent;
+   const [,minutes,seconds]=caption.match(/\| (\d+):(\d+)$/)||[];
+   button.click();
+   assert(continuation.seconds===moment.continuationSeconds,'Переход потерял позицию момента');
+   assert(Number(minutes)*60+Number(seconds)===continuation.seconds,'Время в кнопке расходится с переходом');
+   const player=createVideoPlayer({startAt:continuation.seconds,title:moment.contentTitle,episode:continuation.episode});
+   player.setPlaying(false);assert(player.getPosition()===continuation.seconds,'Плеер открыл другую позицию');player.destroy();
+  });
+  view.destroy();view.remove();
+ }
 });
 await test('Демо-контент: разные серии и отзывы',()=>{
  for(const season of titles.serial.episodeDescriptions)assert(new Set(season).size===season.length,'Повторяются описания серий');
