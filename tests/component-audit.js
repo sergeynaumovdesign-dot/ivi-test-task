@@ -106,6 +106,60 @@ await test('Трейлер: новый файл используется тол�
  assert(titles.serial.cover.fullVideoSrc.endsWith('hannibal-trailer-browser-cut.mp4'),'Полноэкранный трейлер не заменён');
  assert(titles.serial.cover.videoSrc.endsWith('hannibal-trailer-preview.mp4'),'Видеопревью должно остаться прежним');
 });
+function previewFixture() {
+ const originalCreate=document.createElement.bind(document),OriginalObserver=window.IntersectionObserver;
+ let readyState=0,notify,reveal,source='';
+ const video=originalCreate('video');
+ Object.defineProperties(video,{readyState:{get:()=>readyState},src:{get:()=>source,set:value=>{source=value;}}});
+ video.play=()=>Promise.resolve();video.pause=()=>{};
+ video.requestVideoFrameCallback=fn=>{reveal=fn;return 1;};video.cancelVideoFrameCallback=()=>{};
+ let header;
+ try{
+  document.createElement=(name,...args)=>name==='video'?video:originalCreate(name,...args);
+  window.IntersectionObserver=class{constructor(callback){notify=callback;}observe(){}disconnect(){}};
+  header=createContentPageHeader({...titles.serial.cover});
+ }finally{document.createElement=originalCreate;window.IntersectionObserver=OriginalObserver;}
+ stage.append(header);notify([{intersectionRatio:1}]);
+ const queueReady=()=>{readyState=2;video.dispatchEvent(new Event('playing'));return reveal;};
+ return {header,video,image:header.querySelector('.ivi-content-cover__image'),queueReady,ready(){queueReady()();},visible(next){notify([{intersectionRatio:next?1:0}]);},destroy(){header.destroy();header.remove();}};
+}
+await test('Превью трейлера: готовый первый кадр плавно появляется без обязательной задержки',async()=>{
+ const f=previewFixture();
+ try{
+  assert(!f.image.hidden&&f.video.style.opacity==='0','До первого кадра должен быть виден постер');
+  assert(!f.video.hasAttribute('poster'),'Нативный постер не должен перекрывать плавное появление');
+  const reveal=f.queueReady();assert(f.video.style.opacity==='0','playing без отрисованного кадра не должен скрывать постер');
+  reveal();assert(!f.image.hidden&&f.video.style.opacity==='1','Готовое видео должно появляться сразу, а постер оставаться под ним');
+  assert(getComputedStyle(f.video).transitionProperty==='opacity','Появление видео должно анимировать прозрачность');
+  await wait(200);assert(!f.image.hidden&&f.video.style.opacity==='1','Постер должен оставаться под видео после появления');
+ }finally{f.destroy();}
+});
+await test('Превью трейлера: загрузка и перемотка сохраняют последний показанный кадр',async()=>{
+ const f=previewFixture();
+ try{
+  await wait(330);assert(!f.image.hidden&&f.video.style.opacity==='0','До готового кадра должен оставаться постер');
+  f.ready();assert(!f.image.hidden&&f.video.style.opacity==='1','Готовый кадр не должен ждать таймер');
+  f.video.dispatchEvent(new Event('waiting'));await wait(330);
+  assert(f.video.style.opacity==='1','Буферизация не должна возвращать постер поверх последнего кадра');
+  f.video.dispatchEvent(new Event('seeking'));assert(f.video.style.opacity==='1','Перемотка должна сохранять последний кадр');
+  f.ready();assert(f.video.style.opacity==='1','Возобновление не должно повторять появление видео');
+  f.video.dispatchEvent(new Event('emptied'));assert(!f.image.hidden&&f.video.style.opacity==='0','Смена источника должна возвращать постер до нового кадра');
+ }finally{f.destroy();}
+});
+await test('Превью трейлера: возврат сохраняет кадр, закрытие отменяет устаревшее появление',async()=>{
+ const f=previewFixture();
+ try{
+  const stale=f.queueReady();f.header.pausePreview();stale();
+  assert(!f.image.hidden&&f.video.style.opacity==='0','Кадр не должен появляться под открытым плеером');
+  f.header.resumePreview();f.ready();assert(f.video.style.opacity==='1','Возврат должен запускать готовое превью без задержки');
+  f.header.pausePreview();f.header.resumePreview();assert(f.video.style.opacity==='1','Возврат из трейлера не должен заново показывать постер');
+  f.visible(false);f.visible(true);assert(f.video.style.opacity==='1','Повторное попадание в область просмотра должно сохранять кадр');
+  f.video.dispatchEvent(new Event('emptied'));const destroyedFrame=f.queueReady();f.header.destroy();destroyedFrame();
+  assert(f.video.style.opacity==='0','Устаревший кадр не должен появляться после удаления компонента');
+ }finally{f.destroy();}
+ const poster=createContentPageHeader({mediaType:'Poster'});
+ assert(!poster.querySelector('.ivi-content-cover__image').hidden,'Статический режим Poster должен показывать изображение сразу');poster.destroy();
+});
 await test('Превью трейлера: малый буфер не блокирует запуск; открытый плеер останавливает превью',()=>{
  const OriginalObserver=window.IntersectionObserver;
  let header;

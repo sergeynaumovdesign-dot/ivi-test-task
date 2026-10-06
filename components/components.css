@@ -71,7 +71,8 @@
 .ivi-content-cover__image,.ivi-content-cover__video,.ivi-content-cover__shade{position:absolute;inset:0;width:100%;height:100%;pointer-events:none}
 .ivi-content-cover__image,.ivi-content-cover__video{object-fit:cover}
 .ivi-content-cover__image[hidden]{display:none}
-.ivi-content-cover__video{z-index:1}
+.ivi-content-cover__video{z-index:1;transition:opacity 180ms ease-out}
+@media(prefers-reduced-motion:reduce){.ivi-content-cover__video{transition:none}}
 .ivi-content-cover__shade{z-index:2;background:linear-gradient(180deg,transparent 50%,var(--ivi-background-canvas) 95%)}
 .ivi-content-cover__media-hit{position:absolute;inset:0;z-index:3;width:100%;height:100%;padding:0;border:0;background:none;cursor:pointer}
 .ivi-content-cover__mute{position:absolute;top:12px;right:16px;z-index:4;display:grid;place-items:center;width:28px;height:28px;padding:6px;border:0;border-radius:16px;background:var(--ivi-overlay-media-subtle);color:var(--ivi-text-primary);font:20px/16px sans-serif;cursor:pointer}
