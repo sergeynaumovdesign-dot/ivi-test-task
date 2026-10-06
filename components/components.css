@@ -127,7 +127,7 @@
 .ivi-moment-screen__shade{z-index:1;pointer-events:none;background:linear-gradient(180deg,transparent 75%,var(--ivi-background-canvas) 89.76%)}
 .ivi-moment-screen__scrim{z-index:2;pointer-events:none;background:var(--ivi-background-canvas);opacity:0;transition:opacity 150ms}
 .ivi-moment-screen[data-state="Paused"] > .ivi-moment-screen__page > .ivi-moment-screen__scrim{opacity:.5}
-.ivi-moment-screen[data-state="Loading"] > .ivi-moment-screen__page > .ivi-moment-screen__scrim{opacity:.5}
+.ivi-moment-screen.is-loading-visible > .ivi-moment-screen__page > .ivi-moment-screen__scrim{opacity:.5}
 .ivi-moment-screen[data-state="Ended"] > .ivi-moment-screen__page > .ivi-moment-screen__scrim{opacity:.8}
 .ivi-moment-screen[data-state="Error"] > .ivi-moment-screen__page > .ivi-moment-screen__media,.ivi-moment-screen[data-state="Error"] > .ivi-moment-screen__page > .ivi-moment-screen__shade{visibility:hidden}
 .ivi-moment-screen__hit{z-index:3;padding:0;border:0;background:none;color:transparent;cursor:pointer}
@@ -135,6 +135,10 @@
 .ivi-moment-screen__center>*{pointer-events:auto}
 .ivi-moment-screen__play{width:0;height:0;border-top:21px solid transparent;border-bottom:21px solid transparent;border-left:35px solid var(--ivi-text-primary);filter:drop-shadow(0 1px 4px color-mix(in srgb,var(--ivi-background-media) 33.333%,transparent));pointer-events:none}
 .ivi-moment-screen__spinner{width:56px;height:56px;border:4px solid color-mix(in srgb,var(--ivi-text-primary) 33.333%,transparent);border-top-color:var(--ivi-text-primary);border-radius:50%;animation:ivi-spin .8s linear infinite}
+.ivi-video-loading{position:absolute;inset:0;z-index:1;display:grid;place-content:center;padding:16px;text-align:center;pointer-events:none}
+.ivi-video-loading[hidden]{display:none}
+.ivi-moment-screen__loading{z-index:5}
+.ivi-video-loading__error{font-size:14px;line-height:20px;color:var(--ivi-text-primary)}
 @keyframes ivi-spin{to{transform:rotate(360deg)}}
 .ivi-moment-screen[data-state="Ended"] > .ivi-moment-screen__page > .ivi-moment-screen__center{gap:8px;top:min(50%,calc(100% - 396px))}
 .ivi-moment-screen__error{margin-bottom:0;text-align:center}

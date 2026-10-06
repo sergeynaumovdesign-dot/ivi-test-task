@@ -8,7 +8,7 @@ const people = (names, files) => names.map(([name, subtitle], i) => ({name, subt
 const serial = {
   title:'Ганнибал', variant:'Serial', episodeDescriptions, demoVideoSrc:video('case-moment-original.mp4'),
   seriesImages:['06e8c.png','fdacb.png','a77a0.png','06e81.png','26ff4.png','f1e33.png','2a641.png','6ceee.png'].map(image),
-  cover:{...contentCoverDefaults, titleLogo:image('eb673.png'),trailerImage:video('hannibal-trailer-still.png'),posterImage:image('c4f62.png'),videoSrc:video('hannibal-trailer-preview.mp4'),fullVideoSrc:video('hannibal-trailer-browser.mp4'),friendAvatar:image('d5aec.png')},
+  cover:{...contentCoverDefaults, titleLogo:image('eb673.png'),trailerImage:video('hannibal-trailer-still.png'),posterImage:image('c4f62.png'),videoSrc:video('hannibal-trailer-preview.mp4'),fullVideoSrc:video('hannibal-trailer-browser-cut.mp4'),friendAvatar:image('d5aec.png')},
   ordinary:'Аналитик ФБР с уникальным даром ищет неуловимого маньяка, который оказывается ближе, чем кажется',
   summary:{...feedbackSummaryDefaults},
   moments:[

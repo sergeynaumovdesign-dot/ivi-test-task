@@ -1,4 +1,4 @@
-import {createVideoPlayer} from './components/video-player.js';
+import {createVideoPlayer,createVideoLoadingIndicator} from './components/video-player.js';
 import {titles} from './prototype-data.js';
 import {createContentDetailScreen} from './components/content-detail-screen.js';
 import {createMomentScreen,momentSwipeDuration,momentSwipeEasing} from './components/moment-screen.js';
@@ -204,7 +204,7 @@ function openVideo(data={},seconds=0,{deferPlay=false,animateEntry=true}={}){
  }
  const trailer=!data.full;const page=node('div',`player${trailer?' player--trailer':''}`);let video,borrowed=false,destroyed=false,mediaEvents=new AbortController();
  const src=data.videoSrc||media[state.key].trailer||current().cover.fullVideoSrc||current().cover.videoSrc;
- if(src){video=node('video');video.poster=data.imageSrc||current().cover.trailerImage;video.playsInline=true;video.muted=silentPreview;video.defaultMuted=silentPreview;video.controls=!trailer;video.src=src;video.addEventListener('loadedmetadata',()=>{video.currentTime=Math.min(seconds,video.duration||seconds);if(!deferPlay&&!borrowed)video.play().catch(()=>{});},{once:true,signal:mediaEvents.signal});page.append(video);}
+ if(src){video=node('video');video.playsInline=true;video.muted=silentPreview;video.defaultMuted=silentPreview;video.controls=!trailer;page.append(video,createVideoLoadingIndicator(video,{signal:mediaEvents.signal}));video.src=src;video.addEventListener('loadedmetadata',()=>{const start=Math.min(seconds,video.duration||seconds);if(Math.abs(video.currentTime-start)>.01)video.currentTime=start;if(!deferPlay&&!borrowed)video.play().catch(()=>{});},{once:true,signal:mediaEvents.signal});}
  else{const poster=node('img');poster.src=data.imageSrc||current().cover.trailerImage;poster.alt='';page.append(poster);}
  let hintTimer,hint;
  if(trailer){
@@ -220,19 +220,20 @@ function openVideo(data={},seconds=0,{deferPlay=false,animateEntry=true}={}){
  if(video&&!deferPlay)video.play().catch(()=>{});
  layer.lendVideo=()=>{
   if(!video||borrowed||destroyed)return null;
-  const position=video.currentTime,poster=video.poster;
-  const still=node('canvas','player__still');still.setAttribute('aria-hidden','true');
-  let snapshot=still;
-  try{if(!video.videoWidth)throw Error('No frame');still.width=video.videoWidth;still.height=video.videoHeight;still.getContext('2d').drawImage(video,0,0);}
-  catch{snapshot=node('img','player__still');snapshot.src=poster;snapshot.alt='';}
+  const position=video.currentTime;
+  const still=page.querySelector('.player__still')||node('canvas','player__still');still.setAttribute('aria-hidden','true');
+  const snapshot=still;
+  try{if(video.style.visibility==='hidden'||!video.videoWidth)throw Error('No frame');still.width=video.videoWidth;still.height=video.videoHeight;still.getContext('2d').drawImage(video,0,0);}
+  catch{ /* Keep the previous trailer frame while its player is loading. */ }
   page.prepend(snapshot);borrowed=true;mediaEvents.abort();
   return{video,release:()=>{
    if(!borrowed)return;borrowed=false;video.pause();
    if(destroyed)return;
-   video.className='';video.style.opacity='';video.poster=poster;video.muted=silentPreview;video.defaultMuted=silentPreview;video.controls=!trailer;
+   video.className='';video.style.opacity='';video.removeAttribute('poster');video.muted=silentPreview;video.defaultMuted=silentPreview;video.controls=!trailer;
    mediaEvents=new AbortController();
+   page.append(createVideoLoadingIndicator(video,{signal:mediaEvents.signal,onReady:()=>snapshot.remove()}));
    video.addEventListener('loadedmetadata',()=>{video.currentTime=Math.min(position,video.duration||position);},{once:true,signal:mediaEvents.signal});
-   video.src=src;page.prepend(video);snapshot.remove();
+   video.src=src;page.prepend(video);
   }};
  };
  if(trailer){

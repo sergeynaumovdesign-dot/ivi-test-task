@@ -11,7 +11,7 @@ import { createPoster } from '../components/poster.js';
 import { createFriendRate } from '../components/friend-rate.js';
 import { createPersonCard } from '../components/person-card.js';
 import { createContentDetailScreen } from '../components/content-detail-screen.js';
-import { createVideoPlayer } from '../components/video-player.js';
+import { createVideoPlayer, createVideoLoadingIndicator } from '../components/video-player.js';
 import { createButton } from '../components/button.js';
 import { titles } from '../prototype-data.js';
 await document.fonts.ready;
@@ -20,6 +20,92 @@ const results=document.querySelector('#results'),fixtures=document.querySelector
 const frame=()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)));
 const assert=(condition,message)=>{if(!condition)throw Error(message);};
 async function test(name,fn){const row=document.createElement('li');results.append(row);try{await fn();row.textContent='✓ '+name;row.className='pass';}catch(error){row.textContent='✗ '+name+': '+error.message;row.className='fail';}}
+const wait = ms => new Promise(resolve => setTimeout(resolve, ms));
+await test('Трейлер: быстрый первый кадр не показывает лоадер; медленная загрузка соблюдает 300/500',async()=>{
+ const video=document.createElement('video');let readyState=0,seeking=false,next=0;const frames=new Map();
+ Object.defineProperties(video,{readyState:{get:()=>readyState},seeking:{get:()=>seeking}});
+ video.requestVideoFrameCallback=fn=>{frames.set(++next,fn);return next;};video.cancelVideoFrameCallback=id=>frames.delete(id);
+ const loading=createVideoLoadingIndicator(video);stage.append(video,loading);
+ try{
+  assert(loading.hidden&&video.style.visibility==='hidden','Первые 300 мс не должно быть ни постера, ни лоадера');
+  video.dispatchEvent(new Event('playing'));assert(loading.hidden,'playing без кадра не должен показывать видео');
+  readyState=2;video.dispatchEvent(new Event('playing'));assert(video.style.visibility==='hidden','Видео ждёт отрисовки кадра');
+  [...frames.values()].at(-1)();assert(loading.hidden&&video.style.visibility!=='hidden','Быстрый кадр должен появиться без лоадера');
+  await wait(330);assert(loading.hidden,'Отменённый таймер не должен показывать лоадер');
+  video.dispatchEvent(new Event('waiting'));assert(loading.hidden&&video.style.visibility!=='hidden','Короткая буферизация не должна скрывать уже показанный кадр');
+  await wait(200);assert(loading.hidden,'Лоадер не должен появляться раньше 300 мс');
+  await wait(130);assert(!loading.hidden,'После 300 мс должен появиться лоадер');
+  video.dispatchEvent(new Event('playing'));const stale=[...frames.values()].at(-1);
+  seeking=true;video.dispatchEvent(new Event('seeking'));stale();assert(!loading.hidden,'Старый кадр не должен скрыть лоадер после перемотки');
+  seeking=false;video.dispatchEvent(new Event('seeked'));[...frames.values()].at(-1)();
+  assert(!loading.hidden&&video.style.visibility!=='hidden','Готовое видео запускается, но лоадер остаётся минимум 500 мс');
+  await wait(200);assert(!loading.hidden,'Лоадер исчез раньше минимальных 500 мс');
+  await wait(330);assert(loading.hidden,'Лоадер не исчез после готового кадра и 500 мс');
+ }finally{loading.destroy();video.remove();}
+});
+await test('Трейлер: первый кадр появляется вместе с исчезновением лоадера, без вспышки',async()=>{
+ const video=document.createElement('video');let reveal;
+ Object.defineProperty(video,'readyState',{get:()=>2});video.requestVideoFrameCallback=fn=>{reveal=fn;return 1;};video.cancelVideoFrameCallback=()=>{};
+ const loading=createVideoLoadingIndicator(video);stage.append(video,loading);
+ try{
+  await wait(330);assert(!loading.hidden,'Долгая загрузка должна показать лоадер');
+  video.dispatchEvent(new Event('playing'));reveal();
+  assert(video.style.visibility==='hidden','Видео не должно вспыхнуть под ещё видимым лоадером');
+  await wait(200);assert(!loading.hidden&&video.style.visibility==='hidden','Первый кадр появился раньше завершения минимального показа');
+  await wait(330);assert(loading.hidden&&video.style.visibility!=='hidden','Видео и лоадер должны переключиться одновременно');
+  video.dispatchEvent(new Event('waiting'));assert(video.style.visibility!=='hidden','Короткое ожидание скрыло последний кадр');
+  video.dispatchEvent(new Event('playing'));reveal();await wait(330);
+  assert(loading.hidden&&video.style.visibility!=='hidden','Короткое ожидание вызвало мигание');
+  video.dispatchEvent(new Event('seeking'));assert(video.style.visibility!=='hidden','Перемотка должна удерживать последний кадр');
+ }finally{loading.destroy();video.remove();}
+});
+await test('Трейлер: возврат удерживает сохранённый кадр до показа восстановленного видео',async()=>{
+ const video=document.createElement('video'),snapshot=document.createElement('canvas'),controller=new AbortController();let reveal,presentations=0;
+ Object.defineProperty(video,'readyState',{get:()=>2});video.requestVideoFrameCallback=fn=>{reveal=fn;return 1;};video.cancelVideoFrameCallback=()=>{};
+ const loading=createVideoLoadingIndicator(video,{signal:controller.signal,onReady:()=>{presentations++;snapshot.remove();}});stage.append(snapshot,video,loading);
+ try{
+  assert(snapshot.isConnected&&video.style.visibility==='hidden','До готового трейлера должен оставаться сохранённый кадр');
+  await wait(330);video.dispatchEvent(new Event('playing'));reveal();
+  assert(snapshot.isConnected&&!loading.hidden,'Кадр удалён до завершения минимального показа лоадера');
+  await wait(530);assert(!snapshot.isConnected&&loading.hidden&&video.style.visibility!=='hidden'&&presentations===1,'Сохранённый кадр и видео должны заменяться одновременно');
+  video.dispatchEvent(new Event('waiting'));video.dispatchEvent(new Event('playing'));reveal();
+  assert(presentations===1,'Короткая буферизация повторила передачу кадра');
+ }finally{controller.abort();video.remove();snapshot.remove();}
+ const cancelledVideo=document.createElement('video'),cancelled=new AbortController();let stale;
+ Object.defineProperty(cancelledVideo,'readyState',{get:()=>2});cancelledVideo.requestVideoFrameCallback=fn=>{stale=fn;return 1;};cancelledVideo.cancelVideoFrameCallback=()=>{};
+ createVideoLoadingIndicator(cancelledVideo,{signal:cancelled.signal,onReady:()=>{throw Error('Устаревший плеер не должен удалять сохранённый кадр');}});
+ cancelledVideo.dispatchEvent(new Event('playing'));cancelled.abort();stale();
+});
+await test('Моменты: лоадер соблюдает 300/500 и отменяется при смене экрана',async()=>{
+ const view=createMomentScreen({autoplay:false});stage.append(view);
+ const loading=view.querySelector('.ivi-moment-screen__loading');
+ try{
+  view.setState('Loading');assert(loading.hidden,'Лоадер не должен появляться сразу');
+  view.setState('Default');await wait(330);assert(loading.hidden,'Быстрая загрузка показала лоадер');
+  view.setState('Loading');await wait(200);assert(loading.hidden,'Лоадер появился раньше 300 мс');
+  await wait(130);assert(!loading.hidden,'Медленная загрузка не показала лоадер');
+  view.setState('Default');await wait(200);assert(!loading.hidden,'Лоадер не выдержал минимум 500 мс');
+  // A new wait while the loader is visible must cancel its pending hide.
+  view.setState('Loading');await wait(330);assert(!loading.hidden,'Повторная буферизация скрыла лоадер');
+  view.setState('Default');assert(loading.hidden,'После 500 мс готовый момент должен сразу скрыть лоадер');
+  view.setState('Loading');view.setState('Paused');await wait(330);assert(loading.hidden,'Лоадер появился поверх пользовательской паузы');
+  view.setState('Loading');view.destroy();await wait(330);assert(loading.hidden,'Лоадер появился после закрытия');
+ }finally{view.destroy();view.remove();}
+});
+await test('Трейлер: передача плеера отменяет лоадер и его отложенные события',()=>{
+ const video=document.createElement('video'),controller=new AbortController();let reveal;
+ Object.defineProperty(video,'readyState',{get:()=>2});video.requestVideoFrameCallback=fn=>{reveal=fn;return 1;};video.cancelVideoFrameCallback=()=>{};
+ const loading=createVideoLoadingIndicator(video,{signal:controller.signal});stage.append(video,loading);
+ video.dispatchEvent(new Event('playing'));controller.abort();reveal();video.dispatchEvent(new Event('waiting'));
+ assert(!loading.isConnected&&video.style.visibility==='','После передачи плеера старый лоадер не должен менять видимость');
+ const returned=createVideoLoadingIndicator(video);stage.append(returned);assert(returned.hidden&&video.style.visibility==='hidden','После возврата трейлер ждёт свой кадр без мгновенного лоадера');
+ video.dispatchEvent(new Event('error'));assert(returned.textContent.includes('Не удалось загрузить'),'Ошибка не должна оставлять бесконечный лоадер');
+ returned.destroy();video.remove();
+});
+await test('Трейлер: новый файл используется только для полноэкранного просмотра',()=>{
+ assert(titles.serial.cover.fullVideoSrc.endsWith('hannibal-trailer-browser-cut.mp4'),'Полноэкранный трейлер не заменён');
+ assert(titles.serial.cover.videoSrc.endsWith('hannibal-trailer-preview.mp4'),'Видеопревью должно остаться прежним');
+});
 await test('Превью трейлера: малый буфер не блокирует запуск; открытый плеер останавливает превью',()=>{
  const OriginalObserver=window.IntersectionObserver;
  let header;

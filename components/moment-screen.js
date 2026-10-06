@@ -2,6 +2,7 @@ import { createPoster } from './poster.js';
 import { node, pressable } from './core.js';
 import { createButton } from './button.js';
 import { createProgressBar } from './progress-bar.js';
+import { createLoadingTiming } from './loading-timing.js';
 
 const asset = name => new URL(`../assets/moment-screen/${name}`, import.meta.url).href;
 export const momentSwipeEasing = 'cubic-bezier(.25,.1,.25,1)';
@@ -99,6 +100,14 @@ export function createMomentScreen(options = {}) {
   hit.type = 'button';
   hit.setAttribute('aria-label', 'Пауза или воспроизведение');
   const center = node('div', 'ivi-moment-screen__center');
+  const loading = node('div', 'ivi-video-loading ivi-moment-screen__loading');
+  loading.hidden = true;
+  loading.setAttribute('role', 'status'); loading.setAttribute('aria-label', 'Загрузка видео');
+  loading.append(node('span', 'ivi-moment-screen__spinner'));
+  const loadingTiming = createLoadingTiming(visible => {
+    loading.hidden = !visible;
+    root.classList.toggle('is-loading-visible', visible);
+  });
   const actions = node('div', 'ivi-moment-screen__actions');
   const bottom = createMomentBottomSide({ ...current, width: p.width, progress: value,
     onSeekStart: () => { rewindFrom = state; setState('Rewinding'); },
@@ -183,6 +192,7 @@ export function createMomentScreen(options = {}) {
     if (record.video === video) borrowedVideo = false;
   }
   function drawMedia() {
+    loadingTiming.reset();
     const startup = swipePlayback?.index === index ? swipePlayback : null;
     if (startup) swipePlayback = null;
     videoListeners?.abort();
@@ -262,6 +272,8 @@ export function createMomentScreen(options = {}) {
     if (!['Default', 'Paused', 'Loading', 'Ended', 'Error', 'Rewinding'].includes(next)) return;
     if (state === next) return;
     state = next;
+    if (next === 'Default' || next === 'Loading') loadingTiming.setLoading(next === 'Loading');
+    else loadingTiming.reset();
     root.dataset.state = state;
     bottom.setRewinding(next === 'Rewinding', value, Number(current.duration) || 0);
     if (next === 'Default') { if (root.isConnected) startTicker(); }
@@ -269,7 +281,6 @@ export function createMomentScreen(options = {}) {
     else pauseTicker();
     center.replaceChildren();
     if (next === 'Paused') center.append(node('span', 'ivi-moment-screen__play'));
-    if (next === 'Loading') center.append(node('span', 'ivi-moment-screen__spinner'));
     if (next === 'Ended') {
       value = 1; bottom.setProgress(1);
       const seconds = Math.max(0, Math.floor(Number(current.continuationSeconds) || 0));
@@ -439,7 +450,7 @@ export function createMomentScreen(options = {}) {
   const visibility = () => { if (document.hidden && state === 'Default') setState('Paused'); };
   document.addEventListener('visibilitychange', visibility);
   drawMedia(); drawActions();
-  page.append(media, shade, scrim, hit, center, actions, bottom);
+  page.append(media, shade, scrim, hit, center, loading, actions, bottom);
   root.append(page);
   root.dataset.state = state;
   const initial = state; state = ''; setState(initial);
@@ -470,7 +481,7 @@ export function createMomentScreen(options = {}) {
     incoming?.setSize({width,height});
     if(widthChanged&&['Ended','Error'].includes(state)){const next=state;state='';setState(next);}
   };
-  root.destroy = () => { pauseTicker(); clearSwipePlayback(); videoListeners?.abort(); if(borrowedVideo&&video)releaseVideo(video); clearTimeout(settleTimer); cancelAnimationFrame(handoffFrame); settling = false; cancelSwipeHint(); clearIncoming(); document.removeEventListener('visibilitychange', visibility); };
+  root.destroy = () => { loadingTiming.reset(); pauseTicker(); clearSwipePlayback(); videoListeners?.abort(); if(borrowedVideo&&video)releaseVideo(video); clearTimeout(settleTimer); cancelAnimationFrame(handoffFrame); settling = false; cancelSwipeHint(); clearIncoming(); document.removeEventListener('visibilitychange', visibility); };
   if (p.autoplay && initial === 'Default') requestAnimationFrame(() => { if (root.isConnected) startTicker(); });
   return root;
 }

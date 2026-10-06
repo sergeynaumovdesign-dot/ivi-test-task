@@ -1,8 +1,63 @@
 import { node } from './core.js';
 import { createButton } from './button.js';
 import { createProgressBar } from './progress-bar.js';
+import { createLoadingTiming } from './loading-timing.js';
 
 const time = seconds => `${Math.floor(seconds / 60)}:${String(Math.floor(seconds % 60)).padStart(2, '0')}`;
+
+// Show the same loading spinner as Moment Screen until a decoded frame is painted.
+export function createVideoLoadingIndicator(video, { signal, onReady } = {}) {
+  const root = node('div', 'ivi-video-loading');
+  const spinner = node('span', 'ivi-moment-screen__spinner');
+  const events = new AbortController(), originalVisibility = video.style.visibility;
+  let disposed = false, failed = false, frameReady = false, framePresented = false, generation = 0, frameRequest = null;
+  function presentFrame() {
+    if (!disposed && frameReady && root.hidden) {
+      const firstPresentation = !framePresented;
+      framePresented = true; video.style.visibility = originalVisibility;
+      if (firstPresentation) onReady?.();
+    }
+  }
+  root.hidden = true; root.append(spinner);
+  const loadingTiming = createLoadingTiming(visible => { root.hidden = !visible; if (!visible) presentFrame(); });
+  root.setAttribute('role', 'status'); root.setAttribute('aria-label', 'Загрузка видео');
+  function cancelFrame() { if (frameRequest !== null) video.cancelVideoFrameCallback?.(frameRequest); frameRequest = null; }
+  function loading(resetFrame = false) {
+    if (disposed) return;
+    if (failed) { root.hidden = true; failed = false; }
+    if (resetFrame) frameReady = framePresented = false;
+    generation++; cancelFrame();
+    // Keep the last displayed frame during short waits/seeks instead of flashing black.
+    if (!framePresented) video.style.visibility = 'hidden';
+    loadingTiming.setLoading(true);
+    root.setAttribute('aria-label', 'Загрузка видео'); root.replaceChildren(spinner);
+  }
+  function ready() {
+    if (disposed || video.readyState < 2 || video.seeking || frameRequest !== null) return;
+    const request = generation;
+    const reveal = () => {
+      if (disposed || request !== generation || video.seeking) return;
+      frameRequest = null;
+      frameReady = true; loadingTiming.setLoading(false); presentFrame();
+    };
+    if (video.requestVideoFrameCallback) frameRequest = video.requestVideoFrameCallback(reveal);
+    else reveal();
+  }
+  for (const name of ['loadstart', 'emptied']) video.addEventListener(name, () => loading(true), { signal: events.signal });
+  for (const name of ['waiting', 'seeking']) video.addEventListener(name, () => loading(), { signal: events.signal });
+  for (const name of ['playing', 'seeked']) video.addEventListener(name, ready, { signal: events.signal });
+  video.addEventListener('error', () => {
+    if (disposed) return;
+    failed = true; frameReady = framePresented = false;
+    generation++; cancelFrame(); loadingTiming.reset(); video.style.visibility = 'hidden'; root.hidden = false;
+    root.setAttribute('aria-label', 'Ошибка загрузки видео'); root.replaceChildren(node('span', 'ivi-video-loading__error', 'Не удалось загрузить видео'));
+  }, { signal: events.signal });
+  root.destroy = () => { if (disposed) return; disposed = true; events.abort(); cancelFrame(); loadingTiming.reset(); video.style.visibility = originalVisibility; root.remove(); signal?.removeEventListener('abort', root.destroy); };
+  loading();
+  if (signal?.aborted) root.destroy(); else signal?.addEventListener('abort', root.destroy, { once: true });
+  if (!video.paused) ready();
+  return root;
+}
 
 // A sample clip represents the episode in demo mode. Its clock is kept separate
 // from the clip's timeline so continuation always shows the chosen episode offset.
